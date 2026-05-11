@@ -12,6 +12,8 @@ Monorepo for the Expense AI app, managed with Turborepo.
 
 - Node.js 18+ (recommended: latest LTS)
 - npm 9+
+- Python 3.12+ (for local backend run)
+- Docker + Docker Compose (optional)
 
 ## Install
 
@@ -19,7 +21,7 @@ Monorepo for the Expense AI app, managed with Turborepo.
 npm install
 ```
 
-## Quick Start (App + Server)
+## Quick Start
 
 Open 2 terminal windows.
 
@@ -50,29 +52,19 @@ Backend URLs:
 - API base: `http://127.0.0.1:8000`
 - Health check (root): `http://127.0.0.1:8000/`
 
-## Development
+## Run With Docker
 
-Run all `dev` tasks through Turbo:
-
-```bash
-npm run dev
-```
-
-Run only the mobile app:
+Run backend + Postgres + pgAdmin:
 
 ```bash
-npm --workspace mobile run start
+docker compose up --build
 ```
 
-Run backend locally:
+Services:
 
-```bash
-cd apps/backend
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-```
+- Backend API: `http://127.0.0.1:8000`
+- Postgres: `localhost:5432`
+- pgAdmin: `http://127.0.0.1:5050` (`admin@example.com` / `admin`)
 
 ## Common Commands
 
@@ -93,8 +85,33 @@ npm --workspace mobile run ios
 npm --workspace mobile run web
 ```
 
+Backend local run (without Docker):
+
+```bash
+cd apps/backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+## Troubleshooting
+
+If you see:
+
+`Unable to calculate transitive closures: Workspace 'apps/mobile' not found in lockfile`
+
+Run from repo root:
+
+```bash
+npm install
+```
+
+This refreshes `package-lock.json` with workspace entries.
+
 ## Notes
 
 - Turborepo configuration is in `turbo.json`.
-- The mobile app depends on `@expense-ai/shared-types` via workspace protocol.
+- Root `package.json` uses npm workspaces (`apps/*`, `apps/packages/*`).
+- The mobile app depends on `@expense-ai/shared-types` via npm workspace linking.
 - Backend entrypoint is `apps/backend/app/main.py`.
