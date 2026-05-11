@@ -10,3 +10,10 @@ export type ChatMessage = {
 export type ChatResponse = {
   reply: string;
 };
+
+export type ChatConversation = {
+  id: string;
+  title: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};

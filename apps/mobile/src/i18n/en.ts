@@ -1,0 +1,36 @@
+export const en = {
+  tabs: {
+    home: 'Home',
+    chat: 'Chat',
+    settings: 'Settings',
+  },
+  chat: {
+    title: 'Chat AI',
+    subtitle: 'Talk with your finance assistant. API call to POST /chat.',
+    emptyTitle: 'Start a conversation',
+    emptyBody: 'Use quick prompts below or type your question in the message box.',
+    typingHint: 'Tap prompt or type below to start chatting...',
+    liveChat: 'Conversation',
+    assistantName: 'AI Assistant',
+    you: 'You',
+    typing: 'AI is typing...',
+    retry: 'Retry last message',
+    inputPlaceholder: 'Type a message...',
+    send: 'Send',
+    clear: 'Clear conversation',
+    quickPrompts: [
+      'Give me tips to save money each month.',
+      'Suggest a budget split using the 50/30/20 rule.',
+      'How can I track small daily expenses?',
+    ],
+  },
+  settings: {
+    title: 'Settings',
+    languageTitle: 'Language',
+    languageDescription: 'Change app language for labels and chat screen.',
+    currentLanguage: 'Current language',
+    vietnamese: 'Vietnamese',
+    english: 'English',
+    changeLanguage: 'Switch to Vietnamese',
+  },
+} as const;

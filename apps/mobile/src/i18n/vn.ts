@@ -1,0 +1,36 @@
+export const vn = {
+  tabs: {
+    home: 'Home',
+    chat: 'Chat',
+    settings: 'Cai dat',
+  },
+  chat: {
+    title: 'Chat AI',
+    subtitle: 'Tro chuyen voi tro ly tai chinh. API goi toi POST /chat.',
+    emptyTitle: 'Bat dau cuoc tro chuyen',
+    emptyBody: 'Ban co the dung cau hoi nhanh ben duoi hoac nhap cau hoi o o chat.',
+    typingHint: 'Chon goi y hoac nhap ben duoi de bat dau...',
+    liveChat: 'Cuoc tro chuyen',
+    assistantName: 'AI Assistant',
+    you: 'Ban',
+    typing: 'AI dang tra loi...',
+    retry: 'Gui lai tin nhan gan nhat',
+    inputPlaceholder: 'Nhap tin nhan...',
+    send: 'Gui',
+    clear: 'Xoa cuoc tro chuyen',
+    quickPrompts: [
+      'Cho minh meo tiet kiem chi tieu hang thang.',
+      'Goi y cach phan chia ngan sach theo 50/30/20.',
+      'Lam sao de theo doi cac khoan chi nho moi ngay?',
+    ],
+  },
+  settings: {
+    title: 'Cai dat',
+    languageTitle: 'Ngon ngu',
+    languageDescription: 'Doi ngon ngu ung dung cho nhan va man hinh chat.',
+    currentLanguage: 'Ngon ngu hien tai',
+    vietnamese: 'Tieng Viet',
+    english: 'Tieng Anh',
+    changeLanguage: 'Chuyen sang English',
+  },
+} as const;
