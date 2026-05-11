@@ -31,6 +31,3 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
-  
-  redis:
-    image: redis:7

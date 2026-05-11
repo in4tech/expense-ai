@@ -9,7 +9,6 @@ flowchart LR
   U[User] --> M[Mobile App<br/>Expo + React Native]
   M -->|HTTP| B[Backend API<br/>FastAPI]
   B --> DB[(PostgreSQL)]
-  B --> R[(Redis)]
   B --> A[AI OCR Module<br/>Extractor + Parser]
   DB --> P[pgAdmin]
 ```
@@ -117,7 +116,6 @@ Services:
 - Backend API: FastAPI, Uvicorn
 - AI/OCR: `pytesseract` + custom parser
 - Database: PostgreSQL
-- Cache/Queue foundation: Redis
 - Infra/Tools: Docker Compose, Turborepo, npm workspaces, TypeScript
 
 ## Challenges & Solutions
