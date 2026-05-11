@@ -1,6 +1,11 @@
 {
   "name": "expense-ai",
   "version": "1.0.0",
+  "packageManager": "npm@10.9.3",
+  "workspaces": [
+    "apps/*",
+    "apps/packages/*"
+  ],
   "description": "",
   "main": "index.js",
   "scripts": {
