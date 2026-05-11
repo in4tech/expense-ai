@@ -7,7 +7,6 @@ type Language = 'en' | 'vn';
 
 type Dictionary = {
   tabs: {
-    home: string;
     chat: string;
     settings: string;
   };
@@ -35,6 +34,22 @@ type Dictionary = {
     vietnamese: string;
     english: string;
     changeLanguage: string;
+    profileName: string;
+    profileRole: string;
+    otherSettings: string;
+    profileDetails: string;
+    password: string;
+    notifications: string;
+    language: string;
+    darkMode: string;
+    aboutApp: string;
+    helpFaq: string;
+    deactivateAccount: string;
+    comingSoon: string;
+    deactivateConfirmTitle: string;
+    deactivateConfirmMessage: string;
+    cancel: string;
+    confirm: string;
   };
 };
 

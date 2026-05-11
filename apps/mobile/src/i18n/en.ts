@@ -1,6 +1,5 @@
 export const en = {
   tabs: {
-    home: 'Home',
     chat: 'Chat',
     settings: 'Settings',
   },
@@ -32,5 +31,21 @@ export const en = {
     vietnamese: 'Vietnamese',
     english: 'English',
     changeLanguage: 'Switch to Vietnamese',
+    profileName: 'Alfred Daniel',
+    profileRole: 'Product/UI Designer',
+    otherSettings: 'Other settings',
+    profileDetails: 'Profile details',
+    password: 'Password',
+    notifications: 'Notifications',
+    language: 'Language',
+    darkMode: 'Dark mode',
+    aboutApp: 'About application',
+    helpFaq: 'Help/FAQ',
+    deactivateAccount: 'Deactivate my account',
+    comingSoon: 'Coming soon.',
+    deactivateConfirmTitle: 'Deactivate account',
+    deactivateConfirmMessage: 'This action is not available in the demo.',
+    cancel: 'Cancel',
+    confirm: 'OK',
   },
 } as const;

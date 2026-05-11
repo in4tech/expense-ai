@@ -7,6 +7,11 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+export type ChatApiMessage = {
+  role: ChatRole;
+  content: string;
+};
+
 export type ChatResponse = {
   reply: string;
 };
@@ -15,5 +20,5 @@ export type ChatConversation = {
   id: string;
   title: string;
   updatedAt: string;
-  messages: ChatMessage[];
+  messages?: ChatMessage[];
 };
