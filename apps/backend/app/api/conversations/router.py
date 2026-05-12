@@ -129,27 +129,74 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
-
+    
+    client = AsyncOpenAI(api_key=api_key)
+    # Create embedding vectors
+    user_embedding = await chat_service.create_embedding(
+        client=client, 
+        text=body.message
+    )
+    
+    # Create messages database
     await chat_service.create_message(
         db,
         conversation_id=conversation_id,
         role="user",
         content=body.message,
+        embedding=user_embedding
     )
     await db.refresh(conversation)
 
+    # Load recent messages
+    messages = await chat_service.get_messages(
+        db,
+        conversation_id=conversation_id,
+        limit=20
+    )
+
+    # Relevant memories
+    relevant_memories = await chat_service.search_similar_messages(
+        db,
+        embedding=user_embedding,
+        conversation_id=conversation_id
+    )
+    
+    memory_text = ""
+    for memory in relevant_memories:
+        memory_text += (
+            f"{memory.role}: "
+            f"{memory.content}\n"
+        )
+
     transcript = conversation.summary or ""
+    memories = memory_text or ""
+    system_prompt = f"""
+    Bạn là AI assistant thân thiện.
+    
+    Conversation summary:
+    {transcript}
+            
+    Relevant Memories:
+    {memories}
+    """
+        
     llm_messages = [
         {
             "role": "system",
-            "content": f"Bạn là AI assistant thân thiện\n\nConversation summary:\n{transcript}",
+            "content": system_prompt,
         },
     ]
 
+    for msg in messages:
+        llm_messages.append({
+            "role": msg.role,
+            "content": msg.content
+        })
+
+    # Generate function - Streaming Response
     async def generate():
         full_response = ""
 
-        client = AsyncOpenAI(api_key=api_key)
         stream = await client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=llm_messages,
@@ -164,11 +211,17 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
                 full_response += content
                 yield content
 
+        ai_embedding = await chat_service.create_embedding(
+            client=client, 
+            text=full_response
+        )
+
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
             role="assistant",
             content=full_response,
+            embedding=ai_embedding,
         )
  
     return StreamingResponse(

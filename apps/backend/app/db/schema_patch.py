@@ -2,6 +2,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
 
+async def ensure_pgvector_extension(conn: AsyncConnection) -> None:
+    """Required before create_all when models use the vector type."""
+    await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
+
 async def apply_schema_patches(conn: AsyncConnection) -> None:
     await conn.execute(
         text(
@@ -34,6 +39,14 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
                 ALTER TABLE messages RENAME COLUMN create_at TO created_at;
               END IF;
             END $$;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE messages
+            ADD COLUMN IF NOT EXISTS embedding vector(1536);
             """
         )
     )

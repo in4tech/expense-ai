@@ -1,3 +1,4 @@
+from openai import AsyncOpenAI
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -7,7 +8,6 @@ from app.db.models.conversation import Conversation
 from app.db.models.message import Message
 
 _DEFAULT_TITLES = frozenset({"New Chat", "New conversation"})
-
 
 def _format_conversation_summary(messages: list[Message]) -> str:
     return "\n".join(f"{m.role}: {m.content}" for m in messages)
@@ -76,11 +76,13 @@ async def create_message(
     conversation_id: int,
     role: str,
     content: str,
+    embedding=None
 ) -> Message:
     message = Message(
         conversation_id=conversation_id,
         role=role,
         content=content,
+        embedding=embedding
     )
     db.add(message)
 
@@ -99,3 +101,30 @@ async def create_message(
     await db.commit()
     await db.refresh(message)
     return message
+
+async def create_embedding(
+    client: AsyncOpenAI,
+    text: str
+):
+    response = await client.embeddings.create(
+        model="text-embedding-3-small",
+        input=text
+    )
+
+    return response.data[0].embedding
+
+async def search_similar_messages(
+    db: AsyncSession,
+    conversation_id: int,
+    embedding,
+    *,
+    limit: int = 5,
+):
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .where(Message.embedding.is_not(None))
+        .order_by(Message.embedding.cosine_distance(embedding))
+        .limit(limit)
+    )
+    return result.scalars().all()

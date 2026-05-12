@@ -102,6 +102,7 @@ export default function ChatScreen() {
 
   const listRef = useRef<FlatList<ChatListItem>>(null);
   const atBottomRef = useRef(true);
+  const scrollToEndRafRef = useRef<number | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const iconPulseAnim = useRef(new Animated.Value(1)).current;
   const drawerAnim = useRef(new Animated.Value(0)).current;
@@ -160,8 +161,6 @@ export default function ChatScreen() {
     }
   }, [isSending, dictionary.chat.pickFileFailed]);
 
-  const lastMessage = messages[messages.length - 1];
-
   const updateScrollBottomFlag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
     if (contentSize.height <= layoutMeasurement.height + 8) {
@@ -180,6 +179,44 @@ export default function ChatScreen() {
     setShowJumpToBottom(false);
     listRef.current?.scrollToEnd({ animated: true });
   }, []);
+
+  /** Coalesce layout-driven scrolls (long lists + streaming) to one scroll per frame, no layout animation cost. */
+  const scheduleScrollToEndIfAtBottom = useCallback(() => {
+    if (!atBottomRef.current) {
+      return;
+    }
+    if (scrollToEndRafRef.current != null) {
+      cancelAnimationFrame(scrollToEndRafRef.current);
+    }
+    scrollToEndRafRef.current = requestAnimationFrame(() => {
+      scrollToEndRafRef.current = null;
+      listRef.current?.scrollToEnd({ animated: false });
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (scrollToEndRafRef.current != null) {
+        cancelAnimationFrame(scrollToEndRafRef.current);
+        scrollToEndRafRef.current = null;
+      }
+    };
+  }, []);
+  
+  const handleSendMessage = useCallback(
+    (prompt?: string) => {
+      atBottomRef.current = true;
+      setShowJumpToBottom(false);
+      void sendMessage(prompt);
+    },
+    [sendMessage]
+  );
+
+  const handleRetryLastMessage = useCallback(() => {
+    atBottomRef.current = true;
+    setShowJumpToBottom(false);
+    void retryLastMessage();
+  }, [retryLastMessage]);
 
   useEffect(() => {
     if (!hasMessages) {
@@ -215,12 +252,6 @@ export default function ChatScreen() {
       useNativeDriver: true,
     }).start();
   }, [temporaryMode, heroBlend]);
-
-  useEffect(() => {
-    if (atBottomRef.current) {
-      listRef.current?.scrollToEnd({ animated: true });
-    }
-  }, [chatListData.length, isSending, lastMessage?.content]);
 
   useEffect(() => {
     if (hasMessages) {
@@ -343,12 +374,12 @@ export default function ChatScreen() {
                   style={styles.messageList}
                   showsVerticalScrollIndicator={false}
                   onScroll={updateScrollBottomFlag}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={() => {
-                    if (atBottomRef.current) {
-                      listRef.current?.scrollToEnd({ animated: false });
-                    }
-                  }}
+                  scrollEventThrottle={32}
+                  maxToRenderPerBatch={10}
+                  windowSize={10}
+                  updateCellsBatchingPeriod={50}
+                  removeClippedSubviews={Platform.OS === 'android'}
+                  onContentSizeChange={scheduleScrollToEndIfAtBottom}
                   renderItem={({ item }) =>
                     item.type === 'day' ? (
                       <View style={styles.daySeparatorRow}>
@@ -534,7 +565,7 @@ export default function ChatScreen() {
                         styles.quickPromptChip,
                         { backgroundColor: c.quickChipBg, borderColor: c.quickChipBorder },
                       ]}
-                      onPress={() => sendMessage(prompt)}>
+                      onPress={() => handleSendMessage(prompt)}>
                       <ThemedText style={[styles.quickPromptText, { color: c.quickChipText }]}>{prompt}</ThemedText>
                     </Pressable>
                   ))}
@@ -556,7 +587,7 @@ export default function ChatScreen() {
                   { borderColor: c.errorBorder, backgroundColor: c.errorBg },
                 ]}>
                 <ThemedText style={[styles.errorText, { color: c.errorText }]}>{error}</ThemedText>
-                <Pressable style={[styles.secondaryButton, { borderColor: c.secondaryBorder }]} onPress={retryLastMessage}>
+                <Pressable style={[styles.secondaryButton, { borderColor: c.secondaryBorder }]} onPress={handleRetryLastMessage}>
                   <ThemedText type="defaultSemiBold">{dictionary.chat.retry}</ThemedText>
                 </Pressable>
               </View>
@@ -590,7 +621,7 @@ export default function ChatScreen() {
                 <Pressable
                   style={[styles.primaryButton, !canSend && styles.buttonDisabled]}
                   disabled={!canSend}
-                  onPress={() => sendMessage()}>
+                  onPress={() => handleSendMessage()}>
                   <Ionicons name="send" size={16} color="#fff" />
                 </Pressable>
               </View>

@@ -5,7 +5,7 @@ from app.api.conversations.router import router as conversations_router
 
 from app.db.base import Base
 from app.db.models import Conversation, Message, Receipt  # noqa: F401 — register tables
-from app.db.schema_patch import apply_schema_patches
+from app.db.schema_patch import apply_schema_patches, ensure_pgvector_extension
 from app.db.session import engine
 
 app = FastAPI()
@@ -22,6 +22,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
+        await ensure_pgvector_extension(conn)
         await conn.run_sync(Base.metadata.create_all)
         await apply_schema_patches(conn)
 
