@@ -1,5 +1,8 @@
+import os
+
+from openai import AsyncOpenAI
 from pypdf import PdfReader
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.document import DocumentChunk
@@ -7,17 +10,21 @@ from app.db.models.document import DocumentChunk
 def extract_pdf_text(file):
     reader = PdfReader(file)
 
-    text = ""
-    for page in reader.pages:
-        page_text = page.extract_text()
+    pages = []
 
-        if page_text:
-            text += page_text + "\n"
+    for index, page in enumerate(reader.pages):
+        text = page.extract_text()
 
-    return text
+        if text:
+            pages.append({
+                "page": index + 1,
+                "text": text
+            })
+
+    return pages
 
 
-def chunk_text(text, chunk_size=1000):
+def chunk_page_text(text, page, chunk_size=1000, overlap=200):
     chunks = []
 
     start = 0
@@ -27,9 +34,12 @@ def chunk_text(text, chunk_size=1000):
 
         chunk = text[start:end]
 
-        chunks.append(chunk)
+        chunks.append({
+            "content": chunk,
+            "page": page
+        })
 
-        start = end
+        start = (chunk_size - overlap)
 
     return chunks
 
@@ -38,12 +48,14 @@ async def create_document_chunk(
     db: AsyncSession,
     conversation_id,
     content,
-    embedding
+    embedding,
+    page
 ):
     chunk = DocumentChunk(
         conversation_id=conversation_id,
         content=content,
-        embedding=embedding
+        embedding=embedding,
+        page=page
     )
 
     db.add(chunk)
@@ -70,3 +82,51 @@ async def search_document_chunks(
     )
 
     return result.scalars().all()
+
+async def keyboard_search_documents(
+    db: AsyncSession,
+    query,
+    conversation_id,
+    limit=5
+):
+    result = await db.execute(
+        select(DocumentChunk)
+        .where(DocumentChunk.conversation_id == conversation_id)
+        .where(DocumentChunk.search_vector.op('@@')(func.plainto_tsquery(query)))
+        .limit(limit)
+    )
+
+    return result.scalars().all()
+
+async def summarize_pdf(text):
+    truncated_text = text[:12000]
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    client = AsyncOpenAI(api_key=api_key)
+    response = await client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                You are a friendly AI Assistant.
+
+                You are given a PDF file and you need to summarize the content of the file.
+
+                Include the following information in the summary:
+                - The main topics or sections of the document
+                - The key points or insights from the document
+                - The most important information or data from the document
+                - The most important conclusions or recommendations from the document
+                
+                The summary should be in a short and concise manner.
+                """
+            },
+            {
+                "role": "user",
+                "content": truncated_text
+            }
+        ]
+    )
+
+    return response.choices[0].message.content

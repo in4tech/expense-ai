@@ -80,3 +80,37 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
             """
         )
     )
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE document_chunks
+            ADD COLUMN IF NOT EXISTS page INTEGER;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE document_chunks
+            ADD COLUMN IF NOT EXISTS search_vector tsvector;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            UPDATE document_chunks
+            SET search_vector = to_tsvector('simple', COALESCE(content, ''))
+            WHERE search_vector IS NULL;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_document_chunks_search_vector
+            ON document_chunks
+            USING GIN (search_vector);
+            """
+        )
+    )

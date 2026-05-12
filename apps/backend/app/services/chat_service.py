@@ -1,10 +1,11 @@
 from openai import AsyncOpenAI
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.conversation import Conversation
+from app.db.models.document import DocumentChunk
 from app.db.models.message import Message
 
 _DEFAULT_TITLES = frozenset({"New Chat", "New conversation"})
@@ -121,3 +122,13 @@ async def search_similar_messages(
         .limit(limit)
     )
     return result.scalars().all()
+
+
+async def delete_conversation(
+    db: AsyncSession,
+    conversation_id: int
+) -> None:
+    await db.execute(delete(Message).where(Message.conversation_id == conversation_id))
+    await db.execute(delete(DocumentChunk).where(DocumentChunk.conversation_id == conversation_id))
+    await db.execute(delete(Conversation).where(Conversation.id == conversation_id))
+    await db.commit()

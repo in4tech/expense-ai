@@ -300,7 +300,6 @@ export const chatScreenStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   pickedPreviewRow: {
-    maxWidth: '92%',
     alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',

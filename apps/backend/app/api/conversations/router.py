@@ -78,6 +78,24 @@ async def get_conversation_messages(
     messages = await chat_service.get_messages(db, conversation_id, limit=limit)
     return {"messages": [_message_row(m) for m in messages]}
 
+@router.delete("/{conversation_id}")
+async def delete_conversation(
+    conversation_id: int,
+    db: DbSession
+):
+    conversation = await chat_service.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    await chat_service.delete_conversation(
+        db=db,
+        conversation_id=conversation_id
+    )
+
+    return {
+        "message": "Conversation deleted successfully"
+    }
+
 @router.post("/{conversation_id}/assistant")
 async def complete_assistant_reply(conversation_id: int, db: DbSession):
     conversation = await chat_service.get_conversation(db, conversation_id)
@@ -152,16 +170,36 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     )
 
     # Revevant document memories
-    document_chunks = await document_service.search_document_chunks(
+    vector_results = await document_service.search_document_chunks(
         db=db,
         embedding=user_embedding,
         conversation_id=conversation_id
     )
+
+    keyboard_results = await document_service.keyboard_search_documents(
+        db=db,
+        query=body.message,
+        conversation_id=conversation_id
+    )
+
+    combined_chunks = {}
+    for chunk in vector_results:
+        combined_chunks[chunk.id] = chunk
+
+    for row in keyboard_results:
+        chunk = row[0]
+        combined_chunks[chunk.id] = chunk
+
+    final_chunks = list(combined_chunks.values())[:5]
+    
     document_context = ""
-    for chunk in document_chunks:
-        document_context += (
-            chunk.content + "\n"
-        )
+    for chunk in final_chunks:
+        document_context += f"""
+        [Page {chunk.page}]
+
+        {chunk.content}
+
+        """
 
     # Relevant text memories
     relevant_memories = await chat_service.search_similar_messages(
@@ -187,6 +225,11 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
             
     Relevant Memories:
     {memories}
+
+    When answering questions:
+    - cite page number
+    - format:
+    (Source: Page X)
 
     Relevant Documents:
     {document_context}
@@ -240,11 +283,7 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     )
 
 @router.post("/{conversation_id}/upload-pdf")
-async def upload_pdf(
-    db: DbSession,
-    conversation_id: int,
-    file: UploadFile = File(...),
-):
+async def upload_pdf(conversation_id: int, db: DbSession, file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
@@ -263,46 +302,63 @@ async def upload_pdf(
             }
         )
         
-        text = document_service.extract_pdf_text(file.file)
-
-        if not text.strip():
+        pages = document_service.extract_pdf_text(file.file)
+        if not pages:
             raise HTTPException(
                 status_code=400,
                 detail="PDF contains no text"
             )
 
-        chunks = document_service.chunk_text(text)
-
-        for chunk in chunks:
-            embedding = await embedding_service.create_embedding(chunk)
-
-            document_service.create_document_chunk(
-                db=db,
-                conversation_id=conversation_id,
-                content=chunk,
-                embedding=embedding,
+        full_text = ""
+        for page_data in pages:
+            full_text += (
+                page_data["text"] + "\n"
             )
+
+        pdf_summary = await document_service.summarize_pdf(full_text)
+
+        total_chunks = 0
+        for page_data in pages:
+            page_number = page_data["page"]
+            text = page_data["text"]
+
+            chunks = await document_service.chunk_page_text(
+                text=text,
+                page=page_number
+            )
+
+            for chunk in chunks:
+                embedding = embedding_service.create_embedding(
+                    chunk["content"]
+                )
+
+                document_service.create_document_chunk(
+                    db=db,
+                    conversation_id=conversation_id,
+                    content=chunk["content"],
+                    embedding=embedding,
+                    page=chunk["page"]
+                )
+
+            total_chunks += 1
 
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
             role="assistant",
-            content=(
-                f"PDF '{file.filename}' "
-                f"processed successfully."
-            ),
+            content=(f"{pdf_summary}"),
             metadata={
-                "type": "pdf_processed"
+                "type": "pdf_summary",
+                "filename": file.filename
             }
         )
 
         return {
             "message": "PDF uploaded successfully",
-            "chunks": len(chunks)
+            "summary": pdf_summary,
+            "chunks": total_chunks,
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,

@@ -146,19 +146,27 @@ export default function ChatScreen() {
         }
         return;
       }
+      const inputToSend = input;
+      if (inputToSend.trim().length > 0) {
+        setInput('');
+      }
+      const attachmentToSend = pickedAttachment;
+      if (attachmentToSend) {
+        // Clear picked file immediately when user taps Send.
+        setPickedAttachment(null);
+      }
       if (
-        pickedAttachment &&
-        pickedAttachment.kind === 'document' &&
-        ((pickedAttachment.mimeType || '').toLowerCase() === 'application/pdf' ||
-          pickedAttachment.name.toLowerCase().endsWith('.pdf'))
+        attachmentToSend &&
+        attachmentToSend.kind === 'document' &&
+        ((attachmentToSend.mimeType || '').toLowerCase() === 'application/pdf' ||
+          attachmentToSend.name.toLowerCase().endsWith('.pdf'))
       ) {
         try {
           await uploadPdf({
-            uri: pickedAttachment.uri,
-            name: pickedAttachment.name,
-            mimeType: pickedAttachment.mimeType,
+            uri: attachmentToSend.uri,
+            name: attachmentToSend.name,
+            mimeType: attachmentToSend.mimeType,
           });
-          setPickedAttachment(null);
         } catch {
           /* useChat sets error */
         }
@@ -167,7 +175,7 @@ export default function ChatScreen() {
 
       let composed: string | null = null;
       try {
-        composed = await composeOutgoingMessage(input, pickedAttachment, {
+        composed = await composeOutgoingMessage(inputToSend, attachmentToSend, {
           imageAttachDefaultNote: dictionary.chat.imageAttachDefaultNote,
           binaryDocumentFallback: dictionary.chat.binaryDocumentFallback,
         });
@@ -179,9 +187,8 @@ export default function ChatScreen() {
       if (!trimmed) return;
       try {
         await sendMessage(trimmed);
-        setPickedAttachment(null);
       } catch {
-        /* useChat sets error; input and attachment are kept */
+        /* useChat sets error */
       }
     },
     [sendMessage, uploadPdf, input, pickedAttachment, dictionary.chat, setPickedAttachment]
@@ -367,25 +374,37 @@ export default function ChatScreen() {
                         const meta = (item.message.metadata ?? {}) as Record<string, unknown>;
                         const pdfFilename =
                           String(meta.filename ?? item.message.content ?? '').trim() || 'PDF file';
-                        const isPdfMessage =
+                        const isUserPdfMessage =
                           item.message.role === 'user' &&
                           meta.type === 'pdf' &&
                           pdfFilename.trim().length > 0;
-                        if (isPdfMessage) {
+                        if (isUserPdfMessage) {
                           return (
                             <View
                               style={[
                                 styles.pickedPreviewRow,
                                 {
-                                  backgroundColor: isDark ? 'rgba(140,122,248,0.16)' : '#F3EEFF',
-                                  borderColor: isDark ? 'rgba(140,122,248,0.36)' : '#D8CCFF',
+                                  maxWidth: '92%',
+                                  alignSelf: 'flex-end',
+                                  backgroundColor: isDark
+                                    ? 'rgba(140,122,248,0.16)'
+                                    : '#F3EEFF',
+                                  borderColor: isDark
+                                    ? 'rgba(140,122,248,0.36)'
+                                    : '#D8CCFF',
                                 },
                               ]}>
                               <View style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
-                                <Ionicons name="document-text-outline" size={22} color={c.topIcon} />
+                                <Ionicons
+                                  name="document-text-outline"
+                                  size={22}
+                                  color={c.topIcon}
+                                />
                               </View>
                               <View style={styles.pickedPreviewMeta}>
-                                <ThemedText numberOfLines={2} style={[styles.pickedFileName, { color: c.text }]}>
+                                <ThemedText
+                                  numberOfLines={2}
+                                  style={[styles.pickedFileName, { color: c.text }]}>
                                   {pdfFilename}
                                 </ThemedText>
                                 <ThemedText numberOfLines={1} style={[styles.pickedKindLabel, { color: c.textMuted }]}>
