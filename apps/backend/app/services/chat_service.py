@@ -76,13 +76,15 @@ async def create_message(
     conversation_id: int,
     role: str,
     content: str,
-    embedding=None
+    embedding=None,
+    metadata=None
 ) -> Message:
     message = Message(
         conversation_id=conversation_id,
         role=role,
         content=content,
-        embedding=embedding
+        embedding=embedding,
+        meta=metadata
     )
     db.add(message)
 
@@ -102,16 +104,7 @@ async def create_message(
     await db.refresh(message)
     return message
 
-async def create_embedding(
-    client: AsyncOpenAI,
-    text: str
-):
-    response = await client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text
-    )
 
-    return response.data[0].embedding
 
 async def search_similar_messages(
     db: AsyncSession,

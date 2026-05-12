@@ -1,7 +1,7 @@
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from openai import AsyncOpenAI
@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
-from app.services import chat_service
+from app.services import chat_service, embedding_service, document_service
 
 router = APIRouter()
 
@@ -27,7 +27,7 @@ class CreateConversationBody(BaseModel):
 
 
 class SendMessageBody(BaseModel):
-    message: str = Field(..., min_length=1, max_length=10000)
+    message: str = Field(..., min_length=1, max_length=10000),
 
 
 def _conversation_summary_row(conversation) -> dict:
@@ -45,6 +45,7 @@ def _message_row(message) -> dict:
         "id": str(message.id),
         "role": message.role,
         "content": message.content,
+        "metadata": message.meta,
         "createdAt": created.isoformat() if created else "",
     }
 
@@ -129,13 +130,9 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
-    
-    client = AsyncOpenAI(api_key=api_key)
+
     # Create embedding vectors
-    user_embedding = await chat_service.create_embedding(
-        client=client, 
-        text=body.message
-    )
+    user_embedding = await embedding_service.create_embedding(body.message)
     
     # Create messages database
     await chat_service.create_message(
@@ -154,7 +151,19 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
         limit=20
     )
 
-    # Relevant memories
+    # Revevant document memories
+    document_chunks = await document_service.search_document_chunks(
+        db=db,
+        embedding=user_embedding,
+        conversation_id=conversation_id
+    )
+    document_context = ""
+    for chunk in document_chunks:
+        document_context += (
+            chunk.content + "\n"
+        )
+
+    # Relevant text memories
     relevant_memories = await chat_service.search_similar_messages(
         db,
         embedding=user_embedding,
@@ -171,13 +180,16 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     transcript = conversation.summary or ""
     memories = memory_text or ""
     system_prompt = f"""
-    Bạn là AI assistant thân thiện.
+    You are a friendly AI Assistant.
     
     Conversation summary:
     {transcript}
             
     Relevant Memories:
     {memories}
+
+    Relevant Documents:
+    {document_context}
     """
         
     llm_messages = [
@@ -197,6 +209,7 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
     async def generate():
         full_response = ""
 
+        client = AsyncOpenAI(api_key=api_key)
         stream = await client.chat.completions.create(
             model="gpt-4.1-mini",
             messages=llm_messages,
@@ -211,10 +224,7 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
                 full_response += content
                 yield content
 
-        ai_embedding = await chat_service.create_embedding(
-            client=client, 
-            text=full_response
-        )
+        ai_embedding = await embedding_service.create_embedding(full_response)
 
         await chat_service.create_message(
             db=db,
@@ -228,3 +238,73 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
         generate(),
         media_type="text/plain"
     )
+
+@router.post("/{conversation_id}/upload-pdf")
+async def upload_pdf(
+    db: DbSession,
+    conversation_id: int,
+    file: UploadFile = File(...),
+):
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Only PDF files allowed"
+        )
+    
+    try:
+        await chat_service.create_message(
+            db=db,
+            conversation_id=conversation_id,
+            role="user",
+            content=f"{file.filename}",
+            metadata={
+                "type": "pdf",
+                "filename": file.filename
+            }
+        )
+        
+        text = document_service.extract_pdf_text(file.file)
+
+        if not text.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="PDF contains no text"
+            )
+
+        chunks = document_service.chunk_text(text)
+
+        for chunk in chunks:
+            embedding = await embedding_service.create_embedding(chunk)
+
+            document_service.create_document_chunk(
+                db=db,
+                conversation_id=conversation_id,
+                content=chunk,
+                embedding=embedding,
+            )
+
+        await chat_service.create_message(
+            db=db,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=(
+                f"PDF '{file.filename}' "
+                f"processed successfully."
+            ),
+            metadata={
+                "type": "pdf_processed"
+            }
+        )
+
+        return {
+            "message": "PDF uploaded successfully",
+            "chunks": len(chunks)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

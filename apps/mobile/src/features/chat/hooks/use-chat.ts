@@ -7,6 +7,7 @@ import {
   getConversationMessages,
   listConversations,
   sendConversationMessage,
+  uploadConversationPdf,
 } from '@/src/features/chat/api/conversation-api';
 import { createApiClient } from '@/src/lib/api';
 import { ChatConversation, ChatMessage, ChatResponse } from '@/src/features/chat/types';
@@ -79,6 +80,29 @@ export const useChat = () => {
     });
   };
 
+  const ensureConversation = async (hideFromRecents: boolean): Promise<string> => {
+    let conversationId = activeConversationId;
+    if (!conversationId) {
+      const created = await createConversation(apiClient);
+      conversationId = created.id;
+      setActiveConversationId(conversationId);
+      if (!hideFromRecents) {
+        setConversations((current) => {
+          const next: ChatConversation = {
+            id: created.id,
+            title: created.title,
+            updatedAt: created.updatedAt,
+          };
+          if (current.some((c) => c.id === created.id)) {
+            return [next, ...current.filter((c) => c.id !== created.id)];
+          }
+          return [next, ...current];
+        });
+      }
+    }
+    return conversationId;
+  };
+
   const sendMessage = async (message?: string) => {
     const content = (message ?? input).trim();
     if (!content || isSending) {
@@ -94,22 +118,7 @@ export const useChat = () => {
 
     try {
       if (!conversationId) {
-        const created = await createConversation(apiClient);
-        conversationId = created.id;
-        setActiveConversationId(conversationId);
-        if (!hideFromRecents) {
-          setConversations((current) => {
-            const next: ChatConversation = {
-              id: created.id,
-              title: created.title,
-              updatedAt: created.updatedAt,
-            };
-            if (current.some((c) => c.id === created.id)) {
-              return [next, ...current.filter((c) => c.id !== created.id)];
-            }
-            return [next, ...current];
-          });
-        }
+        conversationId = await ensureConversation(hideFromRecents);
       }
 
       const withUserMessage: ChatMessage[] = [...messages, buildMessage('user', content)];
@@ -138,6 +147,38 @@ export const useChat = () => {
       const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
       setError(msg);
       throw sendError instanceof Error ? sendError : new Error(msg);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const uploadPdf = async (file: { uri: string; name: string; mimeType?: string }) => {
+    if (isSending) {
+      return;
+    }
+    const hideFromRecents = temporaryMode;
+    setError(null);
+    setIsSending(true);
+    try {
+      const conversationId = await ensureConversation(hideFromRecents);
+      await uploadConversationPdf(apiClient, conversationId, file);
+      const loaded = await getConversationMessages(apiClient, conversationId);
+      setMessages(loaded);
+      setLastUserMessage(null);
+      if (!hideFromRecents) {
+        upsertConversation(conversationId, loaded);
+        try {
+          const refreshed = await listConversations(apiClient);
+          setConversations(refreshed);
+        } catch {
+          // keep upserted sidebar row if list refresh fails
+        }
+      }
+      setInput('');
+    } catch (uploadError) {
+      const msg = uploadError instanceof Error ? uploadError.message : 'Không thể tải PDF.';
+      setError(msg);
+      throw uploadError instanceof Error ? uploadError : new Error(msg);
     } finally {
       setIsSending(false);
     }
@@ -265,6 +306,7 @@ export const useChat = () => {
     canSend,
     error,
     sendMessage,
+    uploadPdf,
     retryLastMessage,
     loadConversation,
     startNewConversation,

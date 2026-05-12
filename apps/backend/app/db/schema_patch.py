@@ -50,3 +50,33 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
             """
         )
     )
+    await conn.execute(
+        text(
+            """
+            DO $$
+            BEGIN
+              IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'messages'
+                  AND column_name = 'meta'
+              ) AND NOT EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'messages'
+                  AND column_name = 'metadata'
+              ) THEN
+                ALTER TABLE messages RENAME COLUMN meta TO metadata;
+              END IF;
+            END $$;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE messages
+            ADD COLUMN IF NOT EXISTS metadata JSONB;
+            """
+        )
+    )

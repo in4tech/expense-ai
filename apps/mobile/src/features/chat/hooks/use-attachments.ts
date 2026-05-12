@@ -34,6 +34,7 @@ export function useChatScreenAttachments(options: {
       const result = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
         multiple: false,
+        type: 'application/pdf',
       });
       if (result.canceled) return;
       const asset = result.assets[0];

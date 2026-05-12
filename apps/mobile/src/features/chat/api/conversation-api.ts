@@ -78,6 +78,7 @@ export const getConversationMessages = async (
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
         role: 'user',
         content: '',
+        metadata: null,
         createdAt: new Date().toISOString(),
       };
     }
@@ -86,6 +87,7 @@ export const getConversationMessages = async (
       id: String(item.id ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`),
       role: parseRole(String(item.role ?? 'user')),
       content: String(item.content ?? ''),
+      metadata: item.metadata && typeof item.metadata === 'object' ? (item.metadata as Record<string, unknown>) : null,
       createdAt: String(item.createdAt ?? new Date().toISOString()),
     };
   });
@@ -134,6 +136,17 @@ export type SendConversationMessageOptions = {
   onDelta?: (delta: string) => void;
 };
 
+export type UploadPdfFile = {
+  uri: string;
+  name: string;
+  mimeType?: string;
+};
+
+export type UploadPdfResponse = {
+  message: string;
+  chunks: number;
+};
+
 /**
  * POST `/conversations/:id/chat-stream` — response is streamed `text/plain`, not a single JSON body.
  */
@@ -161,6 +174,40 @@ export const sendConversationMessage = async (
   const onDelta = options?.onDelta ?? (() => {});
   const reply = await readPlainTextStream(response, onDelta);
   return { reply };
+};
+
+export const uploadConversationPdf = async (
+  client: ApiClient,
+  conversationId: string,
+  file: UploadPdfFile
+): Promise<UploadPdfResponse> => {
+  const path = `/conversations/${encodeURIComponent(conversationId)}/upload-pdf`;
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType || 'application/pdf',
+  } as unknown as Blob);
+
+  const response = await client.request(path, {
+    method: 'POST',
+    body: form,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(readApiErrorDetail(payload, `Upload PDF failed (${response.status}).`));
+  }
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    typeof (payload as Record<string, unknown>).message !== 'string'
+  ) {
+    throw new Error('Invalid upload PDF response.');
+  }
+  return {
+    message: String((payload as Record<string, unknown>).message),
+    chunks: Number((payload as Record<string, unknown>).chunks ?? 0),
+  };
 };
 
 export const completeAssistantReply = async (

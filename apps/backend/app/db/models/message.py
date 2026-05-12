@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.sql import func
 
 from pgvector.sqlalchemy import Vector
@@ -15,6 +15,7 @@ class Message(Base):
 
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)
+    meta = Column("metadata", JSON, nullable=True)
 
     embedding = Column(Vector(1536), nullable=True)
 

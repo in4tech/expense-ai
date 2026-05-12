@@ -300,11 +300,15 @@ export const chatScreenStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   pickedPreviewRow: {
+    maxWidth: '92%',
+    alignSelf: 'flex-end',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 4,
     paddingVertical: 6,
+    borderWidth: 1,
+    borderRadius: 12,
   },
   pickedThumb: {
     width: 44,
@@ -329,7 +333,7 @@ export const chatScreenStyles = StyleSheet.create({
     fontSize: 11,
   },
   pickedFileName: {
-    flex: 0,
+    flex: 1,
     fontSize: 13,
   },
   composerInput: {

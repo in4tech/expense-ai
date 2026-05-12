@@ -55,6 +55,7 @@ export default function ChatScreen() {
     isSending,
     error,
     sendMessage,
+    uploadPdf,
     retryLastMessage,
     loadConversation,
     startNewConversation,
@@ -145,6 +146,25 @@ export default function ChatScreen() {
         }
         return;
       }
+      if (
+        pickedAttachment &&
+        pickedAttachment.kind === 'document' &&
+        ((pickedAttachment.mimeType || '').toLowerCase() === 'application/pdf' ||
+          pickedAttachment.name.toLowerCase().endsWith('.pdf'))
+      ) {
+        try {
+          await uploadPdf({
+            uri: pickedAttachment.uri,
+            name: pickedAttachment.name,
+            mimeType: pickedAttachment.mimeType,
+          });
+          setPickedAttachment(null);
+        } catch {
+          /* useChat sets error */
+        }
+        return;
+      }
+
       let composed: string | null = null;
       try {
         composed = await composeOutgoingMessage(input, pickedAttachment, {
@@ -164,7 +184,7 @@ export default function ChatScreen() {
         /* useChat sets error; input and attachment are kept */
       }
     },
-    [sendMessage, input, pickedAttachment, dictionary.chat, setPickedAttachment]
+    [sendMessage, uploadPdf, input, pickedAttachment, dictionary.chat, setPickedAttachment]
   );
 
   const handleRetryLastMessage = useCallback(() => {
@@ -343,32 +363,67 @@ export default function ChatScreen() {
                         </ThemedText>
                       </View>
                     ) : (
-                      <View
-                        style={[
-                          styles.messageBubble,
-                          item.message.role === 'user'
-                            ? {
-                              alignSelf: 'flex-end',
-                              borderColor: c.userBubbleBorder,
-                              backgroundColor: c.userBubbleBg,
-                            }
-                            : {
-                              alignSelf: 'flex-start',
-                              borderColor: c.assistantBubbleBorder,
-                              backgroundColor: c.assistantBubbleBg,
-                            },
-                        ]}>
-                        <ThemedText
-                          style={[
-                            styles.messageContent,
-                            {
-                              color:
-                                item.message.role === 'user' ? c.bubbleUserText : c.bubbleAssistantText,
-                            },
-                          ]}>
-                          {item.message.content}
-                        </ThemedText>
-                      </View>
+                      (() => {
+                        const meta = (item.message.metadata ?? {}) as Record<string, unknown>;
+                        const pdfFilename =
+                          String(meta.filename ?? item.message.content ?? '').trim() || 'PDF file';
+                        const isPdfMessage =
+                          item.message.role === 'user' &&
+                          meta.type === 'pdf' &&
+                          pdfFilename.trim().length > 0;
+                        if (isPdfMessage) {
+                          return (
+                            <View
+                              style={[
+                                styles.pickedPreviewRow,
+                                {
+                                  backgroundColor: isDark ? 'rgba(140,122,248,0.16)' : '#F3EEFF',
+                                  borderColor: isDark ? 'rgba(140,122,248,0.36)' : '#D8CCFF',
+                                },
+                              ]}>
+                              <View style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
+                                <Ionicons name="document-text-outline" size={22} color={c.topIcon} />
+                              </View>
+                              <View style={styles.pickedPreviewMeta}>
+                                <ThemedText numberOfLines={2} style={[styles.pickedFileName, { color: c.text }]}>
+                                  {pdfFilename}
+                                </ThemedText>
+                                <ThemedText numberOfLines={1} style={[styles.pickedKindLabel, { color: c.textMuted }]}>
+                                  PDF
+                                </ThemedText>
+                              </View>
+                            </View>
+                          );
+                        }
+                        return (
+                          <View
+                            style={[
+                              styles.messageBubble,
+                              item.message.role === 'user'
+                                ? {
+                                  alignSelf: 'flex-end',
+                                  borderColor: c.userBubbleBorder,
+                                  backgroundColor: c.userBubbleBg,
+                                }
+                                : {
+                                  alignSelf: 'flex-start',
+                                  borderColor: c.assistantBubbleBorder,
+                                  backgroundColor: c.assistantBubbleBg,
+                                },
+                            ]}>
+                            <ThemedText
+                              style={[
+                                styles.messageContent,
+                                {
+                                  color:
+                                    item.message.role === 'user' ? c.bubbleUserText : c.bubbleAssistantText,
+                                },
+                              ]}>
+                              {item.message.content}
+                            </ThemedText>
+                          </View>
+                        );
+                      })()
                     )
                   }
                 />
@@ -549,6 +604,45 @@ export default function ChatScreen() {
             ) : null}
 
             <View style={styles.composerOuter}>
+              {pickedAttachment ? (
+                <View
+                  style={[
+                    styles.pickedPreviewRow,
+                    {
+                      backgroundColor: isDark ? 'rgba(140,122,248,0.16)' : '#F3EEFF',
+                      borderColor: isDark ? 'rgba(140,122,248,0.36)' : '#D8CCFF',
+                    },
+                  ]}>
+                  {pickedAttachment.kind === 'image' ? (
+                    <Image
+                      source={{ uri: pickedAttachment.uri }}
+                      style={styles.pickedThumb}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
+                      <Ionicons name="document-text-outline" size={22} color={c.topIcon} />
+                    </View>
+                  )}
+                  <View style={styles.pickedPreviewMeta}>
+                    <ThemedText numberOfLines={1} style={[styles.pickedFileName, { color: c.textSecondary }]}>
+                      {pickedAttachment.name}
+                    </ThemedText>
+                    <ThemedText numberOfLines={1} style={[styles.pickedKindLabel, { color: c.textMuted }]}>
+                      {pickedAttachment.kind === 'image'
+                        ? dictionary.chat.pickedKindImage
+                        : dictionary.chat.pickedKindDocument}
+                    </ThemedText>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={dictionary.chat.removeAttachment}
+                    onPress={() => setPickedAttachment(null)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Ionicons name="close-circle" size={22} color={c.textMuted} />
+                  </Pressable>
+                </View>
+              ) : null}
               <View
                 style={[
                   styles.inputRow,
@@ -580,38 +674,6 @@ export default function ChatScreen() {
                   <Ionicons name="send" size={16} color="#fff" />
                 </Pressable>
               </View>
-              {pickedAttachment ? (
-                <View style={styles.pickedPreviewRow}>
-                  {pickedAttachment.kind === 'image' ? (
-                    <Image
-                      source={{ uri: pickedAttachment.uri }}
-                      style={styles.pickedThumb}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
-                      <Ionicons name="document-text-outline" size={22} color={c.topIcon} />
-                    </View>
-                  )}
-                  <View style={styles.pickedPreviewMeta}>
-                    <ThemedText numberOfLines={1} style={[styles.pickedFileName, { color: c.textSecondary }]}>
-                      {pickedAttachment.name}
-                    </ThemedText>
-                    <ThemedText numberOfLines={1} style={[styles.pickedKindLabel, { color: c.textMuted }]}>
-                      {pickedAttachment.kind === 'image'
-                        ? dictionary.chat.pickedKindImage
-                        : dictionary.chat.pickedKindDocument}
-                    </ThemedText>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={dictionary.chat.removeAttachment}
-                    onPress={() => setPickedAttachment(null)}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <Ionicons name="close-circle" size={22} color={c.textMuted} />
-                  </Pressable>
-                </View>
-              ) : null}
             </View>
           </View>
         </View>

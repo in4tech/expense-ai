@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.conversations.router import router as conversations_router
 
 from app.db.base import Base
-from app.db.models import Conversation, Message, Receipt  # noqa: F401 — register tables
+from app.db.models import Conversation, Message, Receipt, DocumentChunk  # noqa: F401 — register tables
 from app.db.schema_patch import apply_schema_patches, ensure_pgvector_extension
 from app.db.session import engine
 
