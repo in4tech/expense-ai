@@ -1,7 +1,9 @@
 import os
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,53 +65,17 @@ async def create_conversation_route(
 
 
 @router.get("/{conversation_id}/messages")
-async def get_conversation_messages(conversation_id: int, db: DbSession):
+async def get_conversation_messages(
+    conversation_id: int,
+    db: DbSession,
+    limit: int = Query(default=20, ge=1, le=500),
+):
     conversation = await chat_service.get_conversation(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = await chat_service.get_messages(db, conversation_id)
+    messages = await chat_service.get_messages(db, conversation_id, limit=limit)
     return {"messages": [_message_row(m) for m in messages]}
-
-
-@router.post("/{conversation_id}/messages")
-async def send_conversation_message(conversation_id: int, body: SendMessageBody, db: DbSession):
-    conversation = await chat_service.get_conversation(db, conversation_id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
-
-    await chat_service.create_message(
-        db,
-        conversation_id=conversation_id,
-        role="user",
-        content=body.message,
-    )
-
-    messages = await chat_service.get_messages(db, conversation_id)
-    llm_messages = [{"role": "system", "content": "Bạn là AI assistant thân thiện"}]
-    for msg in messages:
-        llm_messages.append({"role": msg.role, "content": msg.content})
-
-    client = AsyncOpenAI(api_key=api_key)
-    response = await client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=llm_messages,
-    )
-
-    ai_reply = response.choices[0].message.content or ""
-    await chat_service.create_message(
-        db,
-        conversation_id=conversation_id,
-        role="assistant",
-        content=ai_reply,
-    )
-
-    return {"reply": ai_reply}
-
 
 @router.post("/{conversation_id}/assistant")
 async def complete_assistant_reply(conversation_id: int, db: DbSession):
@@ -127,9 +93,16 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
     if messages[-1].role != "user":
         raise HTTPException(status_code=400, detail="Last message is not from the user")
 
-    llm_messages = [{"role": "system", "content": "Bạn là AI assistant thân thiện"}]
-    for msg in messages:
-        llm_messages.append({"role": msg.role, "content": msg.content})
+    await db.refresh(conversation)
+    transcript = (conversation.summary or "").strip()
+    if not transcript:
+        transcript = "\n".join(f"{m.role}: {m.content}" for m in messages)
+    llm_messages = [
+        {
+            "role": "system",
+            "content": f"Bạn là AI assistant thân thiện\n\nConversation summary:\n{transcript}",
+        },
+    ]
 
     client = AsyncOpenAI(api_key=api_key)
     response = await client.chat.completions.create(
@@ -146,3 +119,59 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
     )
 
     return {"reply": ai_reply}
+
+@router.post("/{conversation_id}/chat-stream")
+async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession):
+    conversation = await chat_service.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+
+    await chat_service.create_message(
+        db,
+        conversation_id=conversation_id,
+        role="user",
+        content=body.message,
+    )
+    await db.refresh(conversation)
+
+    transcript = conversation.summary or ""
+    llm_messages = [
+        {
+            "role": "system",
+            "content": f"Bạn là AI assistant thân thiện\n\nConversation summary:\n{transcript}",
+        },
+    ]
+
+    async def generate():
+        full_response = ""
+
+        client = AsyncOpenAI(api_key=api_key)
+        stream = await client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=llm_messages,
+            stream=True,
+        )
+
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+            content = chunk.choices[0].delta.content
+            if content:
+                full_response += content
+                yield content
+
+        await chat_service.create_message(
+            db=db,
+            conversation_id=conversation_id,
+            role="assistant",
+            content=full_response,
+        )
+ 
+    return StreamingResponse(
+        generate(),
+        media_type="text/plain"
+    )

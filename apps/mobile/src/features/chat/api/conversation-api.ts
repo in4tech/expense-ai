@@ -1,4 +1,4 @@
-import type { ApiClient } from '@/src/lib/api';
+import { readApiErrorDetail, type ApiClient } from '@/src/lib/api';
 import {
   ChatConversation,
   ChatMessage,
@@ -49,14 +49,22 @@ export const createConversation = async (client: ApiClient): Promise<Conversatio
   };
 };
 
+export type GetConversationMessagesOptions = {
+  limit?: number;
+};
+
 export const getConversationMessages = async (
   client: ApiClient,
-  conversationId: string
+  conversationId: string,
+  options?: GetConversationMessagesOptions
 ): Promise<ChatMessage[]> => {
-  const payload = await client.getJson<unknown>(
-    `/conversations/${conversationId}/messages`,
-    'Load messages failed'
-  );
+  const params = new URLSearchParams();
+  if (options?.limit != null) {
+    params.set('limit', String(options.limit));
+  }
+  const query = params.toString();
+  const path = `/conversations/${encodeURIComponent(conversationId)}/messages${query ? `?${query}` : ''}`;
+  const payload = await client.getJson<unknown>(path, 'Load messages failed');
   if (!payload || typeof payload !== 'object' || !('messages' in payload)) {
     throw new Error('Invalid messages response.');
   }
@@ -83,20 +91,76 @@ export const getConversationMessages = async (
   });
 };
 
+/** Read `text/plain` response body incrementally (matches server StreamingResponse). */
+async function readPlainTextStream(
+  response: Response,
+  onDelta: (chunk: string) => void
+): Promise<string> {
+  if (!response.body) {
+    const text = await response.text();
+    if (text) {
+      onDelta(text);
+    }
+    return text;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    const chunk = decoder.decode(value, { stream: true });
+    if (chunk) {
+      full += chunk;
+      onDelta(chunk);
+    }
+  }
+
+  const tail = decoder.decode();
+  if (tail) {
+    full += tail;
+    onDelta(tail);
+  }
+
+  return full;
+}
+
+export type SendConversationMessageOptions = {
+  /** Called for each decoded UTF-8 chunk from the stream. */
+  onDelta?: (delta: string) => void;
+};
+
+/**
+ * POST `/conversations/:id/chat-stream` — response is streamed `text/plain`, not a single JSON body.
+ */
 export const sendConversationMessage = async (
   client: ApiClient,
   conversationId: string,
-  message: string
+  message: string,
+  options?: SendConversationMessageOptions
 ): Promise<ChatResponse> => {
-  const payload = await client.postJson<unknown>(
-    `/conversations/${conversationId}/messages`,
-    { message },
-    'Send message failed'
-  );
-  if (!payload || typeof payload !== 'object' || typeof (payload as ChatResponse).reply !== 'string') {
-    throw new Error('Invalid chat response from server.');
+  const path = `/conversations/${encodeURIComponent(conversationId)}/chat-stream`;
+  const response = await client.request(path, {
+    method: 'POST',
+    headers: {
+      Accept: 'text/plain',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new Error(readApiErrorDetail(payload, `Send message failed (${response.status}).`));
   }
-  return payload as ChatResponse;
+
+  const onDelta = options?.onDelta ?? (() => {});
+  const reply = await readPlainTextStream(response, onDelta);
+  return { reply };
 };
 
 export const completeAssistantReply = async (

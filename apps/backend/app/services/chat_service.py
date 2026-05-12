@@ -9,9 +9,25 @@ from app.db.models.message import Message
 _DEFAULT_TITLES = frozenset({"New Chat", "New conversation"})
 
 
+def _format_conversation_summary(messages: list[Message]) -> str:
+    return "\n".join(f"{m.role}: {m.content}" for m in messages)
+
+
+async def _rebuild_conversation_summary(db: AsyncSession, conversation_id: int) -> None:
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.created_at.asc(), Message.id.asc())
+    )
+    rows = list(result.scalars().all())
+    text = _format_conversation_summary(rows)
+    conversation = await db.get(Conversation, conversation_id)
+    if conversation:
+        conversation.summary = text
+
+
 async def get_conversation(db: AsyncSession, conversation_id: int) -> Conversation | None:
     return await db.get(Conversation, conversation_id)
-
 
 async def list_conversations(db: AsyncSession) -> list[Conversation]:
     result = await db.execute(
@@ -28,13 +44,31 @@ async def create_conversation(db: AsyncSession, title: str | None = None) -> Con
     return conversation
 
 
-async def get_messages(db: AsyncSession, conversation_id: int) -> list[Message]:
+async def get_messages(
+    db: AsyncSession,
+    conversation_id: int,
+    *,
+    limit: int | None = None,
+) -> list[Message]:
+    """``limit=None``: all messages asc. Otherwise last ``limit`` messages, asc order."""
+    if limit is None:
+        result = await db.execute(
+            select(Message)
+            .where(Message.conversation_id == conversation_id)
+            .order_by(Message.created_at.asc(), Message.id.asc())
+        )
+        return list(result.scalars().all())
+
+    capped = min(max(limit, 1), 500)
     result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.asc(), Message.id.asc())
+        .order_by(Message.created_at.desc(), Message.id.desc())
+        .limit(capped)
     )
-    return list(result.scalars().all())
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
 
 
 async def create_message(
@@ -58,6 +92,9 @@ async def create_message(
             stripped = content.strip()
             if stripped and (not conversation.title or conversation.title in _DEFAULT_TITLES):
                 conversation.title = stripped[:40]
+
+    await db.flush()
+    await _rebuild_conversation_summary(db, conversation_id)
 
     await db.commit()
     await db.refresh(message)

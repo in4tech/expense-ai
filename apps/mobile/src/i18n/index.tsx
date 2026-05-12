@@ -22,8 +22,27 @@ type Dictionary = {
     typing: string;
     retry: string;
     inputPlaceholder: string;
+    today: string;
+    yesterday: string;
     send: string;
+    attachFile: string;
+    removeAttachment: string;
+    pickFileFailed: string;
     clear: string;
+    scrollToLatest: string;
+    newChatA11y: string;
+    moreMenuA11y: string;
+    temporaryChatTitle: string;
+    temporaryChatBody: string;
+    temporaryChatA11y: string;
+    menuDelete: string;
+    menuReport: string;
+    menuShare: string;
+    deleteConfirmTitle: string;
+    deleteConfirmMessage: string;
+    reportAckTitle: string;
+    reportAckMessage: string;
+    shareFailed: string;
     quickPrompts: readonly string[];
   };
   settings: {

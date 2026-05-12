@@ -28,6 +28,8 @@ export const useChat = () => {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  /** When true, new messages still sync to the server but the thread is hidden from the recents list. */
+  const [temporaryMode, setTemporaryMode] = useState(false);
 
   const hasMessages = messages.length > 0;
 
@@ -83,6 +85,8 @@ export const useChat = () => {
       return;
     }
 
+    const hideFromRecents = temporaryMode;
+
     setError(null);
     setIsSending(true);
     setInput('');
@@ -94,34 +98,41 @@ export const useChat = () => {
         const created = await createConversation(apiClient);
         conversationId = created.id;
         setActiveConversationId(conversationId);
-        setConversations((current) => {
-          const next: ChatConversation = {
-            id: created.id,
-            title: created.title,
-            updatedAt: created.updatedAt,
-          };
-          if (current.some((c) => c.id === created.id)) {
-            return [next, ...current.filter((c) => c.id !== created.id)];
-          }
-          return [next, ...current];
-        });
+        if (!hideFromRecents) {
+          setConversations((current) => {
+            const next: ChatConversation = {
+              id: created.id,
+              title: created.title,
+              updatedAt: created.updatedAt,
+            };
+            if (current.some((c) => c.id === created.id)) {
+              return [next, ...current.filter((c) => c.id !== created.id)];
+            }
+            return [next, ...current];
+          });
+        }
       }
 
       const withUserMessage: ChatMessage[] = [...messages, buildMessage('user', content)];
       setMessages(withUserMessage);
       setLastUserMessage(content);
-      upsertConversation(conversationId, withUserMessage);
+      if (!hideFromRecents) {
+        upsertConversation(conversationId, withUserMessage);
+      }
 
       const response = await sendConversationMessage(apiClient, conversationId, content);
+
       const assistantMessage = buildMessage('assistant', response.reply);
       const withAssistantMessage = [...withUserMessage, assistantMessage];
       setMessages(withAssistantMessage);
-      upsertConversation(conversationId, withAssistantMessage);
-      try {
-        const refreshed = await listConversations(apiClient);
-        setConversations(refreshed);
-      } catch {
-        // keep upserted sidebar row if list refresh fails
+      if (!hideFromRecents) {
+        upsertConversation(conversationId, withAssistantMessage);
+        try {
+          const refreshed = await listConversations(apiClient);
+          setConversations(refreshed);
+        } catch {
+          // keep upserted sidebar row if list refresh fails
+        }
       }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.');
@@ -139,6 +150,8 @@ export const useChat = () => {
       return;
     }
 
+    const hideFromRecents = temporaryMode;
+
     setError(null);
     setIsSending(true);
     try {
@@ -147,12 +160,14 @@ export const useChat = () => {
 
       if (lastRemote?.role === 'assistant') {
         setMessages(remote);
-        upsertConversation(activeConversationId, remote);
-        try {
-          const refreshed = await listConversations(apiClient);
-          setConversations(refreshed);
-        } catch {
-          // ignore
+        if (!hideFromRecents) {
+          upsertConversation(activeConversationId, remote);
+          try {
+            const refreshed = await listConversations(apiClient);
+            setConversations(refreshed);
+          } catch {
+            // ignore
+          }
         }
         return;
       }
@@ -167,12 +182,14 @@ export const useChat = () => {
       const assistantMessage = buildMessage('assistant', response.reply);
       const withAssistantMessage = [...messages, assistantMessage];
       setMessages(withAssistantMessage);
-      upsertConversation(activeConversationId, withAssistantMessage);
-      try {
-        const refreshed = await listConversations(apiClient);
-        setConversations(refreshed);
-      } catch {
-        // ignore
+      if (!hideFromRecents) {
+        upsertConversation(activeConversationId, withAssistantMessage);
+        try {
+          const refreshed = await listConversations(apiClient);
+          setConversations(refreshed);
+        } catch {
+          // ignore
+        }
       }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.');
@@ -193,6 +210,7 @@ export const useChat = () => {
       return;
     }
     setError(null);
+    setTemporaryMode(false);
     try {
       const loaded = await getConversationMessages(apiClient, conversationId);
       setMessages(loaded);
@@ -203,10 +221,30 @@ export const useChat = () => {
     }
   };
 
+  const toggleTemporaryChatMode = () => {
+    if (isSending) {
+      return;
+    }
+    setTemporaryMode((v) => !v);
+  };
+
+  const discardActiveConversation = () => {
+    if (isSending) {
+      return;
+    }
+    const id = activeConversationId;
+    if (id) {
+      setConversations((current) => current.filter((conversation) => conversation.id !== id));
+    }
+    setTemporaryMode(false);
+    clearConversation();
+  };
+
   const startNewConversation = () => {
     if (isSending) {
       return;
     }
+    setTemporaryMode(false);
     clearConversation();
   };
 
@@ -227,5 +265,8 @@ export const useChat = () => {
     loadConversation,
     startNewConversation,
     clearConversation,
+    temporaryMode,
+    toggleTemporaryChatMode,
+    discardActiveConversation,
   };
 };
