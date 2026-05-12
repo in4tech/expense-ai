@@ -28,6 +28,15 @@ type Dictionary = {
     attachFile: string;
     removeAttachment: string;
     pickFileFailed: string;
+    attachMenuTitle: string;
+    attachMenuPhoto: string;
+    attachMenuDocument: string;
+    pickImageFailed: string;
+    pickImagePermissionDenied: string;
+    imageAttachDefaultNote: string;
+    binaryDocumentFallback: string;
+    pickedKindImage: string;
+    pickedKindDocument: string;
     clear: string;
     scrollToLatest: string;
     newChatA11y: string;

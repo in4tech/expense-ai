@@ -89,7 +89,6 @@ export const useChat = () => {
 
     setError(null);
     setIsSending(true);
-    setInput('');
 
     let conversationId = activeConversationId;
 
@@ -134,8 +133,11 @@ export const useChat = () => {
           // keep upserted sidebar row if list refresh fails
         }
       }
+      setInput('');
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.');
+      const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
+      setError(msg);
+      throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
       setIsSending(false);
     }
@@ -192,7 +194,9 @@ export const useChat = () => {
         }
       }
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.');
+      const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
+      setError(msg);
+      throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
       setIsSending(false);
     }
