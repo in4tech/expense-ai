@@ -12,12 +12,7 @@ apps/mobile
 │   ├── config/                   # App-level config/env
 │   │   └── env.ts
 │   ├── features/                 # Business features by domain
-│   │   └── receipt-upload/
-│   │       ├── api/
-│   │       ├── components/
-│   │       ├── hooks/
-│   │       ├── types.ts
-│   │       └── index.ts
+│   │   └── (receipt-upload tạm lưu tại _archive/receipt-upload-mobile/)
 │   ├── shared/                   # Reusable cross-feature code
 │   │   ├── api/
 │   │   ├── components/

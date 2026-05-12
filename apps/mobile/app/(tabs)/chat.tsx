@@ -21,7 +21,6 @@ import { useChat } from '@/src/features/chat';
 import { ChatConversation, ChatMessage } from '@/src/features/chat/types';
 import { useLanguage } from '@/src/i18n';
 import { getChatThemeColors } from '@/src/theme/chat-colors';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CHAT_TOP_OVERLAY_INSET = 100;
 

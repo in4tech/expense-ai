@@ -1,0 +1,85 @@
+diff --git a/node_modules/react-native/React/CoreModules/React-CoreModules.podspec b/node_modules/react-native/React/CoreModules/React-CoreModules.podspec
+index 6049b7d..98fa994 100644
+--- a/node_modules/react-native/React/CoreModules/React-CoreModules.podspec
++++ b/node_modules/react-native/React/CoreModules/React-CoreModules.podspec
+@@ -37,7 +37,9 @@ Pod::Spec.new do |s|
+   s.ios.exclude_files      = "PlatformStubs/**/*"
+   exclude_files            = ["RCTStatusBarManager.mm"]
+   s.macos.exclude_files    = exclude_files
+-  s.visionos.exclude_files = exclude_files
++  if s.respond_to?(:visionos)
++    s.visionos.exclude_files = exclude_files
++  end
+   s.tvos.exclude_files     = exclude_files
+ 
+   s.header_dir             = "CoreModules"
+diff --git a/node_modules/react-native/React/React-RCTFBReactNativeSpec.podspec b/node_modules/react-native/React/React-RCTFBReactNativeSpec.podspec
+index 1abb84e..beef8cf 100644
+--- a/node_modules/react-native/React/React-RCTFBReactNativeSpec.podspec
++++ b/node_modules/react-native/React/React-RCTFBReactNativeSpec.podspec
+@@ -76,12 +76,10 @@ Pod::Spec.new do |s|
+     ss.dependency "Yoga"
+   end
+ 
+-  s.script_phases = [
+-    {
+-      :name => '[RN]Check FBReactNativeSpec',
+-      :execution_position => :before_compile,
+-      :always_out_of_date => '1',
+-      :script => <<-EOS
++  check_fb_spec_phase = {
++    :name => '[RN]Check FBReactNativeSpec',
++    :execution_position => :before_compile,
++    :script => <<-EOS
+ echo "Checking whether Codegen has run..."
+ fbReactNativeSpecPath="$REACT_NATIVE_PATH/React/FBReactNativeSpec"
+ 
+@@ -89,7 +87,8 @@ if [[ ! -d "$fbReactNativeSpecPath" ]]; then
+   echo 'error: Codegen did not run properly in your project. Please reinstall cocoapods with `bundle exec pod install`.'
+   exit 1
+ fi
+-      EOS
+-    }
+-  ]
++    EOS
++  }
++
++  s.script_phases = [check_fb_spec_phase]
+ end
+diff --git a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+index 326c6fa..b820e63 100644
+--- a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
++++ b/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec
+@@ -34,7 +34,9 @@ Pod::Spec.new do |spec|
+   spec.license     = package['license']
+   spec.author      = "Facebook"
+   spec.source      = source
+-  spec.platforms   = { :osx => "10.13", :ios => "15.1", :visionos => "1.0", :tvos => "15.1" }
++  hermes_platforms = { :osx => "10.13", :ios => "15.1", :tvos => "15.1" }
++  hermes_platforms[:visionos] = "1.0" if spec.respond_to?(:visionos)
++  spec.platforms   = hermes_platforms
+ 
+   spec.preserve_paths      = '**/*.*'
+   spec.source_files        = ''
+@@ -48,7 +50,9 @@ Pod::Spec.new do |spec|
+   spec.ios.vendored_frameworks = "destroot/Library/Frameworks/ios/hermes.framework"
+   spec.tvos.vendored_frameworks = "destroot/Library/Frameworks/tvos/hermes.framework"
+   spec.osx.vendored_frameworks = "destroot/Library/Frameworks/macosx/hermes.framework"
+-  spec.visionos.vendored_frameworks = "destroot/Library/Frameworks/xros/hermes.framework"
++  if spec.respond_to?(:visionos)
++    spec.visionos.vendored_frameworks = "destroot/Library/Frameworks/xros/hermes.framework"
++  end
+ 
+   if HermesEngineSourceType::isPrebuilt(source_type) then
+ 
+@@ -57,7 +61,9 @@ Pod::Spec.new do |spec|
+       ss.source_files = "destroot/include/hermes/**/*.h"
+       ss.header_mappings_dir = "destroot/include"
+       ss.ios.vendored_frameworks = "destroot/Library/Frameworks/universal/hermes.xcframework"
+-      ss.visionos.vendored_frameworks = "destroot/Library/Frameworks/universal/hermes.xcframework"
++      if ss.respond_to?(:visionos)
++        ss.visionos.vendored_frameworks = "destroot/Library/Frameworks/universal/hermes.xcframework"
++      end
+       ss.tvos.vendored_frameworks = "destroot/Library/Frameworks/universal/hermes.xcframework"
+       ss.osx.vendored_frameworks = "destroot/Library/Frameworks/macosx/hermes.framework"
+     end

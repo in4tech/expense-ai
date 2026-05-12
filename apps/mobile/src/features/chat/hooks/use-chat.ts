@@ -8,6 +8,7 @@ import {
   listConversations,
   sendConversationMessage,
 } from '@/src/features/chat/api/conversation-api';
+import { createApiClient } from '@/src/lib/api';
 import { ChatConversation, ChatMessage, ChatResponse } from '@/src/features/chat/types';
 
 const buildMessage = (role: ChatMessage['role'], content: string): ChatMessage => ({
@@ -19,6 +20,7 @@ const buildMessage = (role: ChatMessage['role'], content: string): ChatMessage =
 
 export const useChat = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
+  const apiClient = useMemo(() => createApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export const useChat = () => {
     let cancelled = false;
     (async () => {
       try {
-        const rows = await listConversations(apiBaseUrl);
+        const rows = await listConversations(apiClient);
         if (!cancelled) {
           setConversations(rows);
         }
@@ -50,7 +52,7 @@ export const useChat = () => {
     return () => {
       cancelled = true;
     };
-  }, [apiBaseUrl]);
+  }, [apiClient]);
 
   const upsertConversation = (conversationId: string, nextMessages: ChatMessage[]) => {
     const firstUserMessage = nextMessages.find((message) => message.role === 'user');
@@ -89,7 +91,7 @@ export const useChat = () => {
 
     try {
       if (!conversationId) {
-        const created = await createConversation(apiBaseUrl);
+        const created = await createConversation(apiClient);
         conversationId = created.id;
         setActiveConversationId(conversationId);
         setConversations((current) => {
@@ -110,13 +112,13 @@ export const useChat = () => {
       setLastUserMessage(content);
       upsertConversation(conversationId, withUserMessage);
 
-      const response = await sendConversationMessage(apiBaseUrl, conversationId, content);
+      const response = await sendConversationMessage(apiClient, conversationId, content);
       const assistantMessage = buildMessage('assistant', response.reply);
       const withAssistantMessage = [...withUserMessage, assistantMessage];
       setMessages(withAssistantMessage);
       upsertConversation(conversationId, withAssistantMessage);
       try {
-        const refreshed = await listConversations(apiBaseUrl);
+        const refreshed = await listConversations(apiClient);
         setConversations(refreshed);
       } catch {
         // keep upserted sidebar row if list refresh fails
@@ -140,14 +142,14 @@ export const useChat = () => {
     setError(null);
     setIsSending(true);
     try {
-      const remote = await getConversationMessages(apiBaseUrl, activeConversationId);
+      const remote = await getConversationMessages(apiClient, activeConversationId);
       const lastRemote = remote[remote.length - 1];
 
       if (lastRemote?.role === 'assistant') {
         setMessages(remote);
         upsertConversation(activeConversationId, remote);
         try {
-          const refreshed = await listConversations(apiBaseUrl);
+          const refreshed = await listConversations(apiClient);
           setConversations(refreshed);
         } catch {
           // ignore
@@ -157,9 +159,9 @@ export const useChat = () => {
 
       let response: ChatResponse;
       if (lastRemote?.role === 'user' && lastRemote.content === lastUserMessage) {
-        response = await completeAssistantReply(apiBaseUrl, activeConversationId);
+        response = await completeAssistantReply(apiClient, activeConversationId);
       } else {
-        response = await sendConversationMessage(apiBaseUrl, activeConversationId, lastUserMessage);
+        response = await sendConversationMessage(apiClient, activeConversationId, lastUserMessage);
       }
 
       const assistantMessage = buildMessage('assistant', response.reply);
@@ -167,7 +169,7 @@ export const useChat = () => {
       setMessages(withAssistantMessage);
       upsertConversation(activeConversationId, withAssistantMessage);
       try {
-        const refreshed = await listConversations(apiBaseUrl);
+        const refreshed = await listConversations(apiClient);
         setConversations(refreshed);
       } catch {
         // ignore
@@ -192,7 +194,7 @@ export const useChat = () => {
     }
     setError(null);
     try {
-      const loaded = await getConversationMessages(apiBaseUrl, conversationId);
+      const loaded = await getConversationMessages(apiClient, conversationId);
       setMessages(loaded);
       setActiveConversationId(conversationId);
       setLastUserMessage(null);

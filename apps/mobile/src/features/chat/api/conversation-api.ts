@@ -1,27 +1,10 @@
+import type { ApiClient } from '@/src/lib/api';
 import {
   ChatConversation,
   ChatMessage,
   ChatResponse,
   ChatRole,
 } from '@/src/features/chat/types';
-
-const normalizeBaseUrl = (apiBaseUrl: string) => apiBaseUrl.replace(/\/$/, '');
-
-type ApiErrorPayload = { detail?: string };
-
-const readDetail = (payload: unknown, fallback: string): string => {
-  if (payload && typeof payload === 'object' && 'detail' in payload) {
-    const detail = (payload as ApiErrorPayload).detail;
-    if (typeof detail === 'string') {
-      return detail;
-    }
-  }
-  return fallback;
-};
-
-const parseJson = async (response: Response): Promise<unknown> => {
-  return (await response.json().catch(() => null)) as unknown;
-};
 
 const parseRole = (role: string): ChatRole => (role === 'assistant' ? 'assistant' : 'user');
 
@@ -31,12 +14,8 @@ export type ConversationSummaryDto = {
   updatedAt: string;
 };
 
-export const listConversations = async (apiBaseUrl: string): Promise<ChatConversation[]> => {
-  const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/conversations`);
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    throw new Error(readDetail(payload, `Conversations list failed (${response.status}).`));
-  }
+export const listConversations = async (client: ApiClient): Promise<ChatConversation[]> => {
+  const payload = await client.getJson<unknown>('/conversations', 'Conversations list failed');
   if (!payload || typeof payload !== 'object' || !('conversations' in payload)) {
     throw new Error('Invalid conversations list response.');
   }
@@ -57,16 +36,8 @@ export const listConversations = async (apiBaseUrl: string): Promise<ChatConvers
   });
 };
 
-export const createConversation = async (apiBaseUrl: string): Promise<ConversationSummaryDto> => {
-  const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/conversations`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({}),
-  });
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    throw new Error(readDetail(payload, `Create conversation failed (${response.status}).`));
-  }
+export const createConversation = async (client: ApiClient): Promise<ConversationSummaryDto> => {
+  const payload = await client.postJson<unknown>('/conversations', {}, 'Create conversation failed');
   if (!payload || typeof payload !== 'object') {
     throw new Error('Invalid create conversation response.');
   }
@@ -79,14 +50,13 @@ export const createConversation = async (apiBaseUrl: string): Promise<Conversati
 };
 
 export const getConversationMessages = async (
-  apiBaseUrl: string,
+  client: ApiClient,
   conversationId: string
 ): Promise<ChatMessage[]> => {
-  const response = await fetch(`${normalizeBaseUrl(apiBaseUrl)}/conversations/${conversationId}/messages`);
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    throw new Error(readDetail(payload, `Load messages failed (${response.status}).`));
-  }
+  const payload = await client.getJson<unknown>(
+    `/conversations/${conversationId}/messages`,
+    'Load messages failed'
+  );
   if (!payload || typeof payload !== 'object' || !('messages' in payload)) {
     throw new Error('Invalid messages response.');
   }
@@ -114,22 +84,15 @@ export const getConversationMessages = async (
 };
 
 export const sendConversationMessage = async (
-  apiBaseUrl: string,
+  client: ApiClient,
   conversationId: string,
   message: string
 ): Promise<ChatResponse> => {
-  const response = await fetch(
-    `${normalizeBaseUrl(apiBaseUrl)}/conversations/${conversationId}/messages`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message }),
-    }
+  const payload = await client.postJson<unknown>(
+    `/conversations/${conversationId}/messages`,
+    { message },
+    'Send message failed'
   );
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    throw new Error(readDetail(payload, `Send message failed (${response.status}).`));
-  }
   if (!payload || typeof payload !== 'object' || typeof (payload as ChatResponse).reply !== 'string') {
     throw new Error('Invalid chat response from server.');
   }
@@ -137,20 +100,14 @@ export const sendConversationMessage = async (
 };
 
 export const completeAssistantReply = async (
-  apiBaseUrl: string,
+  client: ApiClient,
   conversationId: string
 ): Promise<ChatResponse> => {
-  const response = await fetch(
-    `${normalizeBaseUrl(apiBaseUrl)}/conversations/${conversationId}/assistant`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-    }
+  const payload = await client.postJson<unknown>(
+    `/conversations/${conversationId}/assistant`,
+    {},
+    'Retry failed'
   );
-  const payload = await parseJson(response);
-  if (!response.ok) {
-    throw new Error(readDetail(payload, `Retry failed (${response.status}).`));
-  }
   if (!payload || typeof payload !== 'object' || typeof (payload as ChatResponse).reply !== 'string') {
     throw new Error('Invalid chat response from server.');
   }
