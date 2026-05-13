@@ -10,7 +10,7 @@ export type ConversationSummaryDto = {
 };
 
 export const listConversations = async (client: ApiClient): Promise<ChatConversation[]> => {
-  const payload = await client.getJson<unknown>(apiPaths.conversations.root, 'Conversations list failed');
+  const payload = await client.get<unknown>(apiPaths.conversations.root, 'Conversations list failed');
   if (!payload || typeof payload !== 'object' || !('conversations' in payload)) {
     throw new Error('Invalid conversations list response.');
   }
@@ -32,7 +32,7 @@ export const listConversations = async (client: ApiClient): Promise<ChatConversa
 };
 
 export const createConversation = async (client: ApiClient): Promise<ConversationSummaryDto> => {
-  const payload = await client.postJson<unknown>(apiPaths.conversations.root, {}, 'Create conversation failed');
+  const payload = await client.post<unknown>(apiPaths.conversations.root, {}, 'Create conversation failed');
   if (!payload || typeof payload !== 'object') {
     throw new Error('Invalid create conversation response.');
   }
@@ -68,7 +68,7 @@ export const getConversationMessages = async (
   }
   const query = params.toString();
   const path = apiPaths.conversations.messages(conversationId, query || undefined);
-  const payload = await client.getJson<unknown>(path, 'Load messages failed');
+  const payload = await client.get<unknown>(path, 'Load messages failed');
   if (!payload || typeof payload !== 'object' || !('messages' in payload)) {
     throw new Error('Invalid messages response.');
   }

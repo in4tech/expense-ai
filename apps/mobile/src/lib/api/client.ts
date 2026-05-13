@@ -70,13 +70,13 @@ export function createApiClient(config: CreateApiClientConfig) {
     return payload;
   };
 
-  const getJson = async <T>(path: string, fallbackMessage: string): Promise<T> => {
+  const get = async <T>(path: string, fallbackMessage: string): Promise<T> => {
     const response = await request(path, { method: 'GET' });
     const payload = await throwIfJsonError(response, path, fallbackMessage);
     return payload as T;
   };
 
-  const postJson = async <T>(path: string, body: unknown, fallbackMessage: string): Promise<T> => {
+  const post = async <T>(path: string, body: unknown, fallbackMessage: string): Promise<T> => {
     const response = await request(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,8 +90,8 @@ export function createApiClient(config: CreateApiClientConfig) {
     baseUrl: normalizedBase,
     buildUrl,
     request,
-    getJson,
-    postJson,
+    get,
+    post,
   };
 }
 

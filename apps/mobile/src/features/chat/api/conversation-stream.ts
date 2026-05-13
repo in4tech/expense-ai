@@ -115,7 +115,7 @@ export const completeAssistantReply = async (
   client: ApiClient,
   conversationId: string,
 ): Promise<ChatResponse> => {
-  const payload = await client.postJson<unknown>(apiPaths.conversations.assistant(conversationId), {}, 'Retry failed');
+  const payload = await client.post<unknown>(apiPaths.conversations.assistant(conversationId), {}, 'Retry failed');
   if (!payload || typeof payload !== 'object' || typeof (payload as ChatResponse).reply !== 'string') {
     throw new Error('Invalid chat response from server.');
   }
