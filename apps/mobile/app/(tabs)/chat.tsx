@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Share,
   TextInput,
@@ -53,6 +54,7 @@ export default function ChatScreen() {
     input,
     setInput,
     isSending,
+    streamingStatus,
     error,
     sendMessage,
     uploadPdf,
@@ -61,7 +63,11 @@ export default function ChatScreen() {
     startNewConversation,
     temporaryMode,
     toggleTemporaryChatMode,
-    discardActiveConversation,
+    deleteActiveConversation,
+    removeConversation,
+    refreshConversationHistory,
+    isRefreshingConversations,
+    isDeletingConversation,
   } = useChat();
 
   const { pickedAttachment, setPickedAttachment, openAttachmentMenu, beginNewConversation } =
@@ -91,6 +97,25 @@ export default function ChatScreen() {
 
   const composerCanSend =
     (input.trim().length > 0 || pickedAttachment != null) && !isSending;
+
+  const typingStatusText = useMemo(() => {
+    if (streamingStatus === 'searching_documents') {
+      return dictionary.chat.statusSearchingDocuments;
+    }
+    if (streamingStatus === 'reading_pdf') {
+      return dictionary.chat.statusReadingPdf;
+    }
+    if (streamingStatus === 'generating_answer') {
+      return dictionary.chat.statusGeneratingAnswer;
+    }
+    return dictionary.chat.typing;
+  }, [
+    streamingStatus,
+    dictionary.chat.statusSearchingDocuments,
+    dictionary.chat.statusReadingPdf,
+    dictionary.chat.statusGeneratingAnswer,
+    dictionary.chat.typing,
+  ]);
 
   const updateScrollBottomFlag = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
@@ -191,7 +216,7 @@ export default function ChatScreen() {
         /* useChat sets error */
       }
     },
-    [sendMessage, uploadPdf, input, pickedAttachment, dictionary.chat, setPickedAttachment]
+    [sendMessage, uploadPdf, input, pickedAttachment, dictionary.chat, setInput, setPickedAttachment]
   );
 
   const handleRetryLastMessage = useCallback(() => {
@@ -605,7 +630,7 @@ export default function ChatScreen() {
             {isSending ? (
               <View style={styles.typingState}>
                 <ActivityIndicator size="small" color={c.typing} />
-                <ThemedText style={[styles.typingText, { color: c.typing }]}>{dictionary.chat.typing}</ThemedText>
+                <ThemedText style={[styles.typingText, { color: c.typing }]}>{typingStatusText}</ThemedText>
               </View>
             ) : null}
 
@@ -710,25 +735,50 @@ export default function ChatScreen() {
             ]}>
             <View style={styles.drawerHeader}>
               <ThemedText type="defaultSemiBold" style={[styles.drawerTitle, { color: c.text }]}>
-                Recents
+                {dictionary.chat.recentsTitle}
               </ThemedText>
-              <Pressable
-                style={styles.newChatButton}
-                onPress={() => {
-                  beginNewConversation();
-                  closeHistoryDrawer();
-                }}>
-                <Ionicons name="add" size={14} color="#fff" />
-                <ThemedText style={styles.newChatButtonText}>New Chat</ThemedText>
-              </Pressable>
+              <View style={styles.drawerHeaderActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={dictionary.chat.refreshHistoryA11y}
+                  style={[styles.drawerIconButton, { borderColor: c.historyItemBorder, backgroundColor: c.historyItemBg }]}
+                  disabled={isRefreshingConversations}
+                  onPress={() => void refreshConversationHistory()}>
+                  {isRefreshingConversations ? (
+                    <ActivityIndicator size="small" color={c.topIcon} />
+                  ) : (
+                    <Ionicons name="refresh" size={18} color={c.topIcon} />
+                  )}
+                </Pressable>
+                <Pressable
+                  style={styles.newChatButton}
+                  onPress={() => {
+                    beginNewConversation();
+                    closeHistoryDrawer();
+                  }}>
+                  <Ionicons name="add" size={14} color="#fff" />
+                  <ThemedText style={styles.newChatButtonText}>{dictionary.chat.newChatButton}</ThemedText>
+                </Pressable>
+              </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.drawerList}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.drawerList}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshingConversations}
+                  onRefresh={() => void refreshConversationHistory()}
+                  tintColor={c.topIcon}
+                />
+              }>
               {conversations.length === 0 ? (
-                <ThemedText style={[styles.emptyHistoryText, { color: c.textMuted }]}>No conversations yet.</ThemedText>
+                <ThemedText style={[styles.emptyHistoryText, { color: c.textMuted }]}>
+                  {dictionary.chat.noConversations}
+                </ThemedText>
               ) : (
                 conversations.map((conversation: ChatConversation) => (
-                  <Pressable
+                  <View
                     key={conversation.id}
                     style={[
                       styles.historyItem,
@@ -740,18 +790,40 @@ export default function ChatScreen() {
                         borderColor: c.historyItemActiveBorder,
                         backgroundColor: c.historyItemActiveBg,
                       },
-                    ]}
-                    onPress={() => {
-                      void loadConversation(conversation.id);
-                      closeHistoryDrawer();
-                    }}>
-                    <ThemedText type="defaultSemiBold" numberOfLines={1} style={{ color: c.text }}>
-                      {conversation.title}
-                    </ThemedText>
-                    <ThemedText style={[styles.historyMeta, { color: c.historyMeta }]}>
-                      {new Date(conversation.updatedAt).toLocaleString()}
-                    </ThemedText>
-                  </Pressable>
+                    ]}>
+                    <Pressable
+                      style={styles.historyItemMain}
+                      onPress={() => {
+                        void loadConversation(conversation.id);
+                        closeHistoryDrawer();
+                      }}>
+                      <ThemedText type="defaultSemiBold" numberOfLines={1} style={{ color: c.text }}>
+                        {conversation.title}
+                      </ThemedText>
+                      <ThemedText style={[styles.historyMeta, { color: c.historyMeta }]}>
+                        {new Date(conversation.updatedAt).toLocaleString()}
+                      </ThemedText>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={dictionary.chat.deleteConversationA11y}
+                      style={styles.historyDeleteButton}
+                      disabled={isDeletingConversation}
+                      onPress={() => {
+                        Alert.alert(dictionary.chat.deleteConfirmTitle, dictionary.chat.deleteServerConfirmMessage, [
+                          { text: dictionary.settings.cancel, style: 'cancel' },
+                          {
+                            text: dictionary.chat.menuDelete,
+                            style: 'destructive',
+                            onPress: () => {
+                              void removeConversation(conversation.id);
+                            },
+                          },
+                        ]);
+                      }}>
+                      <Ionicons name="trash-outline" size={16} color={c.errorText} />
+                    </Pressable>
+                  </View>
                 ))
               )}
             </ScrollView>
@@ -773,24 +845,34 @@ export default function ChatScreen() {
                 borderColor: c.inputRowBorder,
               },
             ]}>
+            <View style={[styles.moreMenuHeader, { borderBottomColor: c.inputRowBorder }]}>
+              <ThemedText style={[styles.moreMenuHeaderText, { color: c.textSecondary }]}>
+                {dictionary.chat.moreMenuTitle}
+              </ThemedText>
+            </View>
             <Pressable
               style={styles.moreMenuRow}
               onPress={() => {
                 setMoreMenuOpen(false);
                 Alert.alert(
                   dictionary.chat.deleteConfirmTitle,
-                  dictionary.chat.deleteConfirmMessage,
+                  dictionary.chat.deleteServerConfirmMessage,
                   [
                     { text: dictionary.settings.cancel, style: 'cancel' },
                     {
                       text: dictionary.chat.menuDelete,
                       style: 'destructive',
-                      onPress: () => discardActiveConversation(),
+                      onPress: () => {
+                        void deleteActiveConversation();
+                      },
                     },
                   ]
                 );
               }}>
-              <ThemedText style={[styles.moreMenuRowText, { color: c.errorText }]}>{dictionary.chat.menuDelete}</ThemedText>
+              <View style={styles.moreMenuRowInner}>
+                <Ionicons name="trash-outline" size={17} color={c.errorText} />
+                <ThemedText style={[styles.moreMenuRowText, { color: c.errorText }]}>{dictionary.chat.menuDelete}</ThemedText>
+              </View>
             </Pressable>
             <View style={[styles.moreMenuDivider, { backgroundColor: c.inputRowBorder }]} />
             <Pressable
@@ -799,7 +881,10 @@ export default function ChatScreen() {
                 setMoreMenuOpen(false);
                 Alert.alert(dictionary.chat.reportAckTitle, dictionary.chat.reportAckMessage);
               }}>
-              <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{dictionary.chat.menuReport}</ThemedText>
+              <View style={styles.moreMenuRowInner}>
+                <Ionicons name="flag-outline" size={17} color={c.composerText} />
+                <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{dictionary.chat.menuReport}</ThemedText>
+              </View>
             </Pressable>
             <View style={[styles.moreMenuDivider, { backgroundColor: c.inputRowBorder }]} />
             <Pressable
@@ -818,7 +903,10 @@ export default function ChatScreen() {
                   }
                 })();
               }}>
-              <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{dictionary.chat.menuShare}</ThemedText>
+              <View style={styles.moreMenuRowInner}>
+                <Ionicons name="share-social-outline" size={17} color={c.composerText} />
+                <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{dictionary.chat.menuShare}</ThemedText>
+              </View>
             </Pressable>
           </View>
         </View>

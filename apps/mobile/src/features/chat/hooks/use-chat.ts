@@ -4,8 +4,10 @@ import { DEFAULT_API_BASE_URL } from '@/src/config/env';
 import {
   completeAssistantReply,
   createConversation,
+  deleteConversation,
   getConversationMessages,
   listConversations,
+  type SsePayload,
   sendConversationMessage,
   uploadConversationPdf,
 } from '@/src/features/chat/api/conversation-api';
@@ -19,6 +21,26 @@ const buildMessage = (role: ChatMessage['role'], content: string): ChatMessage =
   createdAt: new Date().toISOString(),
 });
 
+export type StreamingStatus = 'searching_documents' | 'reading_pdf' | 'generating_answer' | null;
+
+const mapStreamingStatusFromEvent = (event: SsePayload): StreamingStatus => {
+  if (event.type === 'content' || event.type === 'done') {
+    return 'generating_answer';
+  }
+  if (event.type === 'tool' && event.status === 'running') {
+    if (event.tool === 'search_documents') {
+      return 'searching_documents';
+    }
+    if (event.tool === 'get_recent_messages') {
+      return 'reading_pdf';
+    }
+  }
+  if (event.type === 'thinking') {
+    return 'generating_answer';
+  }
+  return null;
+};
+
 export const useChat = () => {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const apiClient = useMemo(() => createApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
@@ -28,7 +50,10 @@ export const useChat = () => {
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
+  const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   /** When true, new messages still sync to the server but the thread is hidden from the recents list. */
   const [temporaryMode, setTemporaryMode] = useState(false);
 
@@ -38,9 +63,20 @@ export const useChat = () => {
     return input.trim().length > 0 && !isSending;
   }, [input, isSending]);
 
+  const refreshConversationHistory = async () => {
+    setIsRefreshingConversations(true);
+    try {
+      const rows = await listConversations(apiClient);
+      setConversations(rows);
+    } finally {
+      setIsRefreshingConversations(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setIsRefreshingConversations(true);
       try {
         const rows = await listConversations(apiClient);
         if (!cancelled) {
@@ -49,6 +85,10 @@ export const useChat = () => {
       } catch {
         if (!cancelled) {
           // Offline or server error: keep drawer usable for the current session.
+        }
+      } finally {
+        if (!cancelled) {
+          setIsRefreshingConversations(false);
         }
       }
     })();
@@ -112,6 +152,7 @@ export const useChat = () => {
     const hideFromRecents = temporaryMode;
 
     setError(null);
+    setStreamingStatus('generating_answer');
     setIsSending(true);
 
     let conversationId = activeConversationId;
@@ -128,13 +169,36 @@ export const useChat = () => {
         upsertConversation(conversationId, withUserMessage);
       }
 
-      const response = await sendConversationMessage(apiClient, conversationId, content);
-
-      const assistantMessage = buildMessage('assistant', response.reply);
+      const assistantMessage = buildMessage('assistant', '');
+      const assistantMessageId = assistantMessage.id;
       const withAssistantMessage = [...withUserMessage, assistantMessage];
       setMessages(withAssistantMessage);
+
+      let streamedReply = '';
+      const response = await sendConversationMessage(apiClient, conversationId, content, {
+        onDelta: (delta) => {
+          streamedReply += delta;
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === assistantMessageId ? { ...message, content: streamedReply } : message
+            )
+          );
+        },
+        onEvent: (event) => {
+          const next = mapStreamingStatusFromEvent(event);
+          if (next) {
+            setStreamingStatus(next);
+          }
+        },
+      });
+
+      const finalReply = streamedReply || response.reply;
+      const finalizedMessages = withAssistantMessage.map((message) =>
+        message.id === assistantMessageId ? { ...message, content: finalReply } : message
+      );
+      setMessages(finalizedMessages);
       if (!hideFromRecents) {
-        upsertConversation(conversationId, withAssistantMessage);
+        upsertConversation(conversationId, finalizedMessages);
         try {
           const refreshed = await listConversations(apiClient);
           setConversations(refreshed);
@@ -144,10 +208,12 @@ export const useChat = () => {
       }
       setInput('');
     } catch (sendError) {
+      setMessages((current) => current.filter((message) => !(message.role === 'assistant' && !message.content)));
       const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
       setError(msg);
       throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
+      setStreamingStatus(null);
       setIsSending(false);
     }
   };
@@ -158,6 +224,7 @@ export const useChat = () => {
     }
     const hideFromRecents = temporaryMode;
     setError(null);
+    setStreamingStatus(null);
     setIsSending(true);
     try {
       const conversationId = await ensureConversation(hideFromRecents);
@@ -196,6 +263,7 @@ export const useChat = () => {
     const hideFromRecents = temporaryMode;
 
     setError(null);
+    setStreamingStatus('generating_answer');
     setIsSending(true);
     try {
       const remote = await getConversationMessages(apiClient, activeConversationId);
@@ -219,7 +287,14 @@ export const useChat = () => {
       if (lastRemote?.role === 'user' && lastRemote.content === lastUserMessage) {
         response = await completeAssistantReply(apiClient, activeConversationId);
       } else {
-        response = await sendConversationMessage(apiClient, activeConversationId, lastUserMessage);
+        response = await sendConversationMessage(apiClient, activeConversationId, lastUserMessage, {
+          onEvent: (event) => {
+            const next = mapStreamingStatusFromEvent(event);
+            if (next) {
+              setStreamingStatus(next);
+            }
+          },
+        });
       }
 
       const assistantMessage = buildMessage('assistant', response.reply);
@@ -239,6 +314,7 @@ export const useChat = () => {
       setError(msg);
       throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
+      setStreamingStatus(null);
       setIsSending(false);
     }
   };
@@ -285,6 +361,35 @@ export const useChat = () => {
     clearConversation();
   };
 
+  const removeConversation = async (conversationId: string) => {
+    if (isSending || isDeletingConversation) {
+      return;
+    }
+    setError(null);
+    setIsDeletingConversation(true);
+    try {
+      await deleteConversation(apiClient, conversationId);
+      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      if (activeConversationId === conversationId) {
+        setTemporaryMode(false);
+        clearConversation();
+      }
+    } catch (deleteError) {
+      const msg = deleteError instanceof Error ? deleteError.message : 'Không thể xóa cuộc trò chuyện.';
+      setError(msg);
+      throw deleteError instanceof Error ? deleteError : new Error(msg);
+    } finally {
+      setIsDeletingConversation(false);
+    }
+  };
+
+  const deleteActiveConversation = async () => {
+    if (!activeConversationId) {
+      return;
+    }
+    await removeConversation(activeConversationId);
+  };
+
   const startNewConversation = () => {
     if (isSending) {
       return;
@@ -305,14 +410,20 @@ export const useChat = () => {
     isSending,
     canSend,
     error,
+    streamingStatus,
     sendMessage,
     uploadPdf,
     retryLastMessage,
     loadConversation,
     startNewConversation,
     clearConversation,
+    refreshConversationHistory,
+    removeConversation,
+    deleteActiveConversation,
     temporaryMode,
     toggleTemporaryChatMode,
     discardActiveConversation,
+    isRefreshingConversations,
+    isDeletingConversation,
   };
 };

@@ -76,9 +76,24 @@ export const chatScreenStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  moreMenuHeader: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  moreMenuHeaderText: {
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
   moreMenuRow: {
     paddingHorizontal: 16,
     paddingVertical: 13,
+  },
+  moreMenuRowInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   moreMenuRowText: {
     fontSize: 16,
@@ -381,6 +396,19 @@ export const chatScreenStyles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 12,
   },
+  drawerHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  drawerIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   drawerTitle: {
     fontSize: 18,
   },
@@ -407,6 +435,19 @@ export const chatScreenStyles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
     gap: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  historyItemMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  historyDeleteButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   historyMeta: {
     fontSize: 12,

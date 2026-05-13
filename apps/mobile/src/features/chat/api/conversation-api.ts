@@ -1,4 +1,5 @@
 import { readApiErrorDetail, type ApiClient } from '@/src/lib/api';
+import EventSource from 'react-native-sse';
 import {
   ChatConversation,
   ChatMessage,
@@ -49,6 +50,15 @@ export const createConversation = async (client: ApiClient): Promise<Conversatio
   };
 };
 
+export const deleteConversation = async (client: ApiClient, conversationId: string): Promise<void> => {
+  const path = `/conversations/${encodeURIComponent(conversationId)}`;
+  const response = await client.request(path, { method: 'DELETE' });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(readApiErrorDetail(payload, `Delete conversation failed (${response.status}).`));
+  }
+};
+
 export type GetConversationMessagesOptions = {
   limit?: number;
 };
@@ -93,47 +103,28 @@ export const getConversationMessages = async (
   });
 };
 
-/** Read `text/plain` response body incrementally (matches server StreamingResponse). */
-async function readPlainTextStream(
-  response: Response,
-  onDelta: (chunk: string) => void
-): Promise<string> {
-  if (!response.body) {
-    const text = await response.text();
-    if (text) {
-      onDelta(text);
-    }
-    return text;
+export type SsePayload = {
+  type?: string;
+  content?: string;
+  message?: string;
+  tool?: string;
+  status?: string;
+  iteration?: number;
+};
+
+const parseSsePayload = (rawData: string): SsePayload | null => {
+  try {
+    return JSON.parse(rawData) as SsePayload;
+  } catch {
+    return null;
   }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let full = '';
-
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) {
-      break;
-    }
-    const chunk = decoder.decode(value, { stream: true });
-    if (chunk) {
-      full += chunk;
-      onDelta(chunk);
-    }
-  }
-
-  const tail = decoder.decode();
-  if (tail) {
-    full += tail;
-    onDelta(tail);
-  }
-
-  return full;
-}
+};
 
 export type SendConversationMessageOptions = {
-  /** Called for each decoded UTF-8 chunk from the stream. */
+  /** Called for each content chunk from SSE stream. */
   onDelta?: (delta: string) => void;
+  /** Called for every parsed SSE payload event. */
+  onEvent?: (event: SsePayload) => void;
 };
 
 export type UploadPdfFile = {
@@ -148,7 +139,7 @@ export type UploadPdfResponse = {
 };
 
 /**
- * POST `/conversations/:id/chat-stream` — response is streamed `text/plain`, not a single JSON body.
+ * POST `/conversations/chat-stream` — response is streamed `text/event-stream`.
  */
 export const sendConversationMessage = async (
   client: ApiClient,
@@ -156,23 +147,79 @@ export const sendConversationMessage = async (
   message: string,
   options?: SendConversationMessageOptions
 ): Promise<ChatResponse> => {
-  const path = `/conversations/${encodeURIComponent(conversationId)}/chat-stream`;
-  const response = await client.request(path, {
-    method: 'POST',
-    headers: {
-      Accept: 'text/plain',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
+  const numericConversationId = Number(conversationId);
+  if (!Number.isFinite(numericConversationId)) {
+    throw new Error('Invalid conversation id.');
+  }
+  const onDelta = options?.onDelta ?? (() => {});
+  const onEvent = options?.onEvent ?? (() => {});
+
+  const reply = await new Promise<string>((resolve, reject) => {
+    const streamUrl = client.buildUrl('/conversations/chat-stream');
+    let full = '';
+    let settled = false;
+
+    const es = new EventSource(streamUrl, {
+      method: 'POST',
+      headers: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        conversation_id: numericConversationId,
+        message,
+      }),
+      pollingInterval: 0,
+    });
+
+    const finalize = (error?: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      es.removeAllEventListeners();
+      es.close();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(full);
+    };
+
+    es.addEventListener('message', (event) => {
+      if (!event.data) {
+        return;
+      }
+      const payload = parseSsePayload(event.data);
+      if (!payload) {
+        full += event.data;
+        onDelta(event.data);
+        return;
+      }
+      onEvent(payload);
+
+      if (payload.type === 'content' && typeof payload.content === 'string') {
+        full += payload.content;
+        onDelta(payload.content);
+        return;
+      }
+
+      if (payload.type === 'done') {
+        finalize();
+        return;
+      }
+
+      if (payload.type === 'error') {
+        finalize(new Error(payload.message || 'SSE stream error.'));
+      }
+    });
+
+    es.addEventListener('error', (event) => {
+      const reason = 'message' in event && event.message ? event.message : 'SSE connection failed.';
+      finalize(new Error(reason));
+    });
   });
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    throw new Error(readApiErrorDetail(payload, `Send message failed (${response.status}).`));
-  }
-
-  const onDelta = options?.onDelta ?? (() => {});
-  const reply = await readPlainTextStream(response, onDelta);
   return { reply };
 };
 

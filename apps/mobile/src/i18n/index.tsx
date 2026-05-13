@@ -20,6 +20,9 @@ type Dictionary = {
     assistantName: string;
     you: string;
     typing: string;
+    statusSearchingDocuments: string;
+    statusReadingPdf: string;
+    statusGeneratingAnswer: string;
     retry: string;
     inputPlaceholder: string;
     today: string;
@@ -47,8 +50,15 @@ type Dictionary = {
     menuDelete: string;
     menuReport: string;
     menuShare: string;
+    moreMenuTitle: string;
     deleteConfirmTitle: string;
     deleteConfirmMessage: string;
+    deleteServerConfirmMessage: string;
+    recentsTitle: string;
+    newChatButton: string;
+    noConversations: string;
+    refreshHistoryA11y: string;
+    deleteConversationA11y: string;
     reportAckTitle: string;
     reportAckMessage: string;
     shareFailed: string;

@@ -1,4 +1,7 @@
 import os
+import json
+
+from this import d
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -10,9 +13,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 from app.services import chat_service, embedding_service, document_service
+from app.ai.tools import TOOLS
+from app.ai.agent_tools import get_recent_messages_tool, search_documents_tool
 
 router = APIRouter()
 
+def sse_event(data):
+    return (
+        f"data: "
+        f"{json.dumps(data)}\n\n"
+    )
 
 async def get_db():
     async with SessionLocal() as session:
@@ -25,9 +35,12 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 class CreateConversationBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
 
-
 class SendMessageBody(BaseModel):
-    message: str = Field(..., min_length=1, max_length=10000),
+    message: str = Field(..., min_length=1, max_length=10000)
+
+class ChatRequest(BaseModel):
+    conversation_id: int
+    message: str = Field(..., min_length=1, max_length=10000)
 
 
 def _conversation_summary_row(conversation) -> dict:
@@ -139,8 +152,9 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
 
     return {"reply": ai_reply}
 
-@router.post("/{conversation_id}/chat-stream")
-async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession):
+# OLD: v1
+# @router.post("/{conversation_id}/chat-stream")
+# async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession):
     conversation = await chat_service.get_conversation(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -176,6 +190,7 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
         conversation_id=conversation_id
     )
 
+    # Revevant vector/sematic memories
     keyboard_results = await document_service.keyboard_search_documents(
         db=db,
         query=body.message,
@@ -282,6 +297,166 @@ async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession
         media_type="text/plain"
     )
 
+# NEW: v2
+MAX_INTERATION = 5
+@router.post("/chat-stream")
+async def chat_stream(request: ChatRequest, db: DbSession):
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+
+    user_embedding = await embedding_service.create_embedding(request.message)
+
+    await chat_service.create_message(
+        db=db,
+        conversation_id=request.conversation_id,
+        role="user",
+        content=request.message,
+        embedding=user_embedding
+    )
+
+    history = await chat_service.get_messages(
+        db=db,
+        conversation_id=request.conversation_id,
+        limit=20
+    )
+
+    message_for_agent = [
+        {
+            "role": "system",
+            "content": """ 
+            You are a friendly AI Assistant.
+
+            You can:
+            - Search documents
+            - Read conversation history
+            - Use tools when needed
+            - Call tools multiple times
+
+            Rules:
+            - self-decide when to call tools
+            - can call tools many times
+            - only return final answer when enough information
+            - if missing information, use tools
+            - always think step by step
+            """
+        }
+    ]
+
+    for msg in history:
+        message_for_agent.append({
+            "role": msg.role,
+            "content": msg.content
+        })
+
+    async def generate():
+        full_response = ""
+
+        for iteration in range(MAX_INTERATION):
+            yield sse_event({
+                "type": "thinking",
+                "iteration": iteration + 1
+            })
+
+            client = AsyncOpenAI(api_key=api_key)
+            response = await client.chat.completions.create(
+                model="gpt-4.1-mini",
+                messages=message_for_agent,
+                tools=TOOLS
+            )
+
+            assistant_message = response.choices[0].message
+
+            message_for_agent.append({
+                "role": "assistant",
+                "content": assistant_message.content or "",
+                "tool_calls": assistant_message.tool_calls
+            })
+
+            if not assistant_message.tool_calls:
+                yield sse_event({
+                    "type": "thinking",
+                    "status": "final_answer"
+                })
+
+                break
+
+            for tool_call in assistant_message.tool_calls:
+                tool_name = tool_call.function.name
+
+                arguments = json.loads(tool_call.function.arguments)
+
+                yield sse_event({
+                    "type": "tool",
+                    "tool": tool_name,
+                    "status": "running"
+                })
+
+                if(tool_name == "search_documents"):
+                    result = await search_documents_tool(
+                        db=db,
+                        query=arguments["query"],
+                        conversation_id=request.conversation_id
+                    )
+
+                elif(tool_name == "get_recent_messages"):
+                    result = await get_recent_messages_tool(
+                        db=db,
+                        conversation_id=request.conversation_id,
+                        limit=arguments.get("limit", 10)
+                    )
+                else:
+                    result = "Unknown tool"
+
+                yield sse_event({
+                    "type": "tool",
+                    "tool": tool_name,
+                    "status": "completed"
+                })
+
+                message_for_agent.append({
+                    "tool_call_id": tool_call.id,
+                    "role": "tool",
+                    "name": tool_name,
+                    "content": result
+                })
+
+        final_stream = await client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=message_for_agent,
+            stream=True
+        )
+
+        async for chunk in final_stream:
+            content = chunk.choices[0].delta.content
+
+            if content:
+                full_response += content
+
+                yield sse_event({
+                    "type": "content",
+                    "content": content
+                })
+        
+        ai_embedding = await embedding_service.create_embedding(full_response)
+
+        await chat_service.create_message(
+            db=db,
+            conversation_id=request.conversation_id,
+            role="assistant",
+            content=full_response,
+            embedding=ai_embedding
+        )
+
+        yield sse_event({
+            "type": "done"
+        })
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream"
+    )
+
 @router.post("/{conversation_id}/upload-pdf")
 async def upload_pdf(conversation_id: int, db: DbSession, file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
@@ -322,17 +497,17 @@ async def upload_pdf(conversation_id: int, db: DbSession, file: UploadFile = Fil
             page_number = page_data["page"]
             text = page_data["text"]
 
-            chunks = await document_service.chunk_page_text(
+            chunks = document_service.chunk_page_text(
                 text=text,
                 page=page_number
             )
 
             for chunk in chunks:
-                embedding = embedding_service.create_embedding(
+                embedding = await embedding_service.create_embedding(
                     chunk["content"]
                 )
 
-                document_service.create_document_chunk(
+                await document_service.create_document_chunk(
                     db=db,
                     conversation_id=conversation_id,
                     content=chunk["content"],
