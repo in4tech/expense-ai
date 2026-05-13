@@ -3,11 +3,14 @@ from tavily import TavilyClient
 from app.config import settings
 
 
-client = TavilyClient(
-    api_key=settings.TAVILY_API_KEY
-)
-
 async def search_web(query):
+    if not settings.TAVILY_API_KEY:
+        return (
+            "Web search is not configured: set TAVILY_API_KEY in the environment "
+            "or in .env to use Tavily search."
+        )
+
+    client = TavilyClient(api_key=settings.TAVILY_API_KEY)
     response = client.search(
         query=query,
         search_depth="advanced",

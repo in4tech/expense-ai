@@ -3,7 +3,14 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BASE_DIR = Path(__file__).resolve().parents[3]
+_config_file = Path(__file__).resolve()
+_parents = _config_file.parents
+if len(_parents) > 3:
+    BASE_DIR = _parents[3]
+elif len(_parents) > 1:
+    BASE_DIR = _parents[1]
+else:
+    BASE_DIR = _parents[0]
 
 
 class Settings(BaseSettings):

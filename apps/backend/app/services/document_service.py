@@ -1,6 +1,6 @@
 from openai import AsyncOpenAI
 from pypdf import PdfReader
-from sqlalchemy import func, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -82,19 +82,21 @@ async def search_document_chunks(
 
     return result.scalars().all()
 
-async def keyboard_search_documents(
+
+async def keyword_search_chunks(
     db: AsyncSession,
     query,
     conversation_id,
-    limit=5
+    limit=5,
 ):
+    tsq = func.plainto_tsquery(query)
     result = await db.execute(
         select(DocumentChunk)
         .where(DocumentChunk.conversation_id == conversation_id)
-        .where(DocumentChunk.search_vector.op('@@')(func.plainto_tsquery(query)))
+        .where(DocumentChunk.search_vector.op("@@")(tsq))
+        .order_by(desc(func.ts_rank(DocumentChunk.search_vector, tsq)))
         .limit(limit)
     )
-
     return result.scalars().all()
 
 async def summarize_pdf(text):

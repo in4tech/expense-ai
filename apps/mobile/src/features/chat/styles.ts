@@ -64,9 +64,9 @@ export const chatScreenStyles = StyleSheet.create({
   },
   moreMenuPanel: {
     position: 'absolute',
-    top: 98,
+    top: 110,
     right: 14,
-    minWidth: 176,
+    minWidth: 220,
     borderRadius: 14,
     borderWidth: 1,
     paddingVertical: 4,
@@ -101,6 +101,76 @@ export const chatScreenStyles = StyleSheet.create({
   moreMenuDivider: {
     height: StyleSheet.hairlineWidth,
     marginHorizontal: 8,
+  },
+  attachmentSheetRoot: {
+    flex: 1,
+  },
+  attachmentSheetBackdropPressable: {
+    flex: 1,
+  },
+  attachmentSheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+  },
+  attachmentSheetPanel: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    paddingBottom: 4,
+    maxWidth: 560,
+    width: '100%',
+    alignSelf: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  attachmentSheetHandle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  attachmentSheetTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.35,
+    textTransform: 'uppercase',
+    paddingHorizontal: 20,
+    marginBottom: 6,
+  },
+  attachmentSheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  attachmentSheetRowIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  attachmentSheetRowLabel: {
+    fontSize: 17,
+  },
+  attachmentSheetDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 20,
+  },
+  attachmentSheetCancel: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  attachmentSheetCancelText: {
+    fontSize: 17,
+    fontWeight: '600',
   },
   emptyStateBody: {
     flex: 1,
@@ -376,6 +446,7 @@ export const chatScreenStyles = StyleSheet.create({
   drawerRoot: {
     flex: 1,
     flexDirection: 'row',
+    paddingVertical: 12,
   },
   drawerBackdropPressable: {
     flex: 1,

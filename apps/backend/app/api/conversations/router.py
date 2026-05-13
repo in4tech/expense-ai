@@ -15,7 +15,7 @@ from app.services.memory_service import create_memory, extract_memory, search_me
 from app.config import settings
 
 from app.ai.tools import TOOLS
-from app.ai.agent_tools import get_recent_messages_tool, search_documents_tool, search_web_tool
+from app.ai.agent_tools import get_recent_messages_tool, hybrid_search_documents, search_web_tool
 from app.db.models import memory
 
 router = APIRouter()
@@ -428,7 +428,7 @@ async def chat_stream(request: ChatRequest, db: DbSession):
                 })
 
                 if(tool_name == "search_documents"):
-                    result = await search_documents_tool(
+                    result = await hybrid_search_documents(
                         db=db,
                         query=arguments["query"],
                         conversation_id=conversation_id

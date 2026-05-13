@@ -2,37 +2,43 @@
 
 
 from app.services.embedding_service import create_embedding
-from app.services.document_service import search_document_chunks
+from app.services.document_service import keyword_search_chunks, search_document_chunks
 from app.services.chat_service import get_messages
 from app.services.web_search_service import search_web
 
-
-async def search_documents_tool(
+async def hybrid_search_documents(
     db,
     query,
     conversation_id
-): 
-    embedding = await create_embedding(query)
+):
+    embbeding = await create_embedding(query)
 
-    chunks = await search_document_chunks(
+    vector_results = await search_document_chunks(
         db=db,
-        embedding=embedding,
+        embedding=embbeding,
         conversation_id=conversation_id,
         limit=5
     )
 
-    result = ""
+    keyboard_results = await keyword_search_chunks(
+        db=db,
+        query=query,
+        conversation_id=conversation_id,
+        limit=5
+    )
 
-    for chunk in chunks:
-        result += f"""
-        [Page {chunk.page}]
+    merged = {}
+    for chunk in vector_results:
+        merged[chunk.id] = chunk
 
-        {chunk.content}
+    for row in keyboard_results:
+        chunk = row[0]
 
-        """
+        merged[chunk.id] = chunk
 
-    return result
+    final_chunks = list(merged.values())
 
+    return final_chunks[:8]
 
 async def get_recent_messages_tool(
     db,

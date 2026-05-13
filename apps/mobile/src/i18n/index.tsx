@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 import { en } from '@/src/i18n/en';
 import { vn } from '@/src/i18n/vn';
@@ -104,25 +104,31 @@ const dictionaries: Record<Language, Dictionary> = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('en');
 
-  const value = useMemo<LanguageContextValue>(
-    () => ({
-      language,
-      dictionary: dictionaries[language],
-      toggleLanguage: () => setLanguage((current) => (current === 'vn' ? 'en' : 'vn')),
-    }),
-    [language]
+  const toggleLanguage = useCallback(() => {
+    setLanguage((current) => (current === 'vn' ? 'en' : 'vn'));
+  }, []);
+
+  const value = useMemo(
+    function buildLanguageContextValue(): LanguageContextValue {
+      return {
+        language,
+        dictionary: dictionaries[language],
+        toggleLanguage,
+      };
+    },
+    [language, toggleLanguage]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
-};
+}
 
-export const useLanguage = () => {
+export function useLanguage() {
   const context = useContext(LanguageContext);
   if (!context) {
     throw new Error('useLanguage must be used within LanguageProvider');
   }
   return context;
-};
+}

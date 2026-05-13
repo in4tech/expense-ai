@@ -17,14 +17,19 @@ type ChatDictionarySlice = {
 export function useChatScreenAttachments(options: {
   isSending: boolean;
   chat: ChatDictionarySlice;
-  cancelLabel: string;
   startNewConversation: () => void;
 }) {
-  const { isSending, chat, cancelLabel, startNewConversation } = options;
+  const { isSending, chat, startNewConversation } = options;
   const [pickedAttachment, setPickedAttachment] = useState<PickedAttachment | null>(null);
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
+
+  const closeAttachmentPicker = useCallback(() => {
+    setAttachmentPickerOpen(false);
+  }, []);
 
   const beginNewConversation = useCallback(() => {
     setPickedAttachment(null);
+    setAttachmentPickerOpen(false);
     startNewConversation();
   }, [startNewConversation]);
 
@@ -78,25 +83,31 @@ export function useChatScreenAttachments(options: {
 
   const openAttachmentMenu = useCallback(() => {
     if (isSending) return;
-    Alert.alert(chat.attachMenuTitle, undefined, [
-      { text: chat.attachMenuPhoto, onPress: () => void pickImageFromLibrary() },
-      { text: chat.attachMenuDocument, onPress: () => void pickDocument() },
-      { text: cancelLabel, style: 'cancel' },
-    ]);
-  }, [
-    isSending,
-    chat.attachMenuTitle,
-    chat.attachMenuPhoto,
-    chat.attachMenuDocument,
-    cancelLabel,
-    pickImageFromLibrary,
-    pickDocument,
-  ]);
+    setAttachmentPickerOpen(true);
+  }, [isSending]);
+
+  const pickPhotoFromSheet = useCallback(() => {
+    setAttachmentPickerOpen(false);
+    requestAnimationFrame(() => {
+      void pickImageFromLibrary();
+    });
+  }, [pickImageFromLibrary]);
+
+  const pickDocumentFromSheet = useCallback(() => {
+    setAttachmentPickerOpen(false);
+    requestAnimationFrame(() => {
+      void pickDocument();
+    });
+  }, [pickDocument]);
 
   return {
     pickedAttachment,
     setPickedAttachment,
     openAttachmentMenu,
     beginNewConversation,
+    attachmentPickerOpen,
+    closeAttachmentPicker,
+    pickPhotoFromSheet,
+    pickDocumentFromSheet,
   };
 }

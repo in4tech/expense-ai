@@ -1,9 +1,10 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Appearance,
   Pressable,
+  PressableStateCallbackType,
   ScrollView,
   StyleSheet,
   Switch,
@@ -69,6 +70,11 @@ export default function SettingsScreen() {
     Appearance.setColorScheme(value ? 'dark' : 'light');
   };
 
+  const onLanguageRowPress = useCallback(() => {
+    void Haptics.selectionAsync();
+    toggleLanguage();
+  }, [toggleLanguage]);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={['top']}>
       <View style={styles.header}>
@@ -127,10 +133,7 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="language-outline"
             label={dictionary.settings.language}
-            onPress={() => {
-              void Haptics.selectionAsync();
-              toggleLanguage();
-            }}
+            onPress={onLanguageRowPress}
             dividerColor={c.divider}
             textColor={c.text}
             chevronColor={c.chevron}
@@ -214,6 +217,10 @@ function SettingsRow({
     ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: dividerColor }
     : undefined;
 
+  function rowPressableStyle(state: PressableStateCallbackType) {
+    return state.pressed ? styles.rowPressed : undefined;
+  }
+
   const inner = (
     <View style={[styles.rowInner, borderStyle]}>
       <Ionicons name={icon} size={22} color={textColor} />
@@ -227,7 +234,7 @@ function SettingsRow({
 
   if (onPress) {
     return (
-      <Pressable onPress={onPress} style={({ pressed }) => (pressed ? styles.rowPressed : undefined)}>
+      <Pressable onPress={onPress} style={rowPressableStyle}>
         {inner}
       </Pressable>
     );
