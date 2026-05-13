@@ -7,9 +7,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/toast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { LanguageProvider } from '@/src/i18n';
+import { QueryProvider } from '@/src/query/query-provider';
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: '(main)/(tabs)',
 };
 
 export default function RootLayout() {
@@ -17,17 +18,19 @@ export default function RootLayout() {
 
   return (
     <LanguageProvider>
-      <SafeAreaProvider>
-        <ToastProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Stack>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="dev-settings" options={{ headerShown: false }} />
-            </Stack>
-            <StatusBar style="auto" />
-          </ThemeProvider>
-        </ToastProvider>
-      </SafeAreaProvider>
+      <QueryProvider>
+        <SafeAreaProvider>
+          <ToastProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(main)" />
+                <Stack.Screen name="(auth)" />
+              </Stack>
+              <StatusBar style="auto" />
+            </ThemeProvider>
+          </ToastProvider>
+        </SafeAreaProvider>
+      </QueryProvider>
     </LanguageProvider>
   );
 }

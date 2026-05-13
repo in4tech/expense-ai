@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast';
+import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 
 export default function DevSettingsScreen() {
@@ -50,7 +51,7 @@ export default function DevSettingsScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(tabs)/settings');
+      router.replace(href.mainSettings);
     }
   }, [router]);
 

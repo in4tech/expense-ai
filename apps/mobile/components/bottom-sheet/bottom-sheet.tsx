@@ -147,7 +147,7 @@ export function BottomSheet({
       }
       return { color: palette.defaultLabel };
     },
-    [palette.cancelLabel, palette.defaultLabel, palette.destructive],
+    [palette.defaultLabel, palette.destructive],
   );
 
   return (
@@ -259,15 +259,15 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   title: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '700',
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 8,
   },
   message: {
     fontSize: 15,
     lineHeight: 21,
-    textAlign: 'center',
+    textAlign: 'left',
     marginBottom: 8,
   },
   actions: {

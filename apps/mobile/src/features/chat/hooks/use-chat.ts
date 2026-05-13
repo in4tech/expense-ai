@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { DEFAULT_API_BASE_URL } from '@/src/config/env';
 import {
   completeAssistantReply,
+  conversationsListQueryOptions,
   createConversation,
   deleteConversation,
   getConversationMessages,
-  listConversations,
   type SsePayload,
   sendConversationMessage,
   uploadConversationPdf,
-} from '@/src/features/chat/api/conversation-api';
+} from '@/src/features/chat/api';
 import { createApiClient } from '@/src/lib/api';
+import { queryKeys } from '@/src/query/query-keys';
 import { ChatConversation, ChatMessage, ChatResponse } from '@/src/features/chat/types';
 
 const buildMessage = (role: ChatMessage['role'], content: string): ChatMessage => ({
@@ -42,17 +44,24 @@ const mapStreamingStatusFromEvent = (event: SsePayload): StreamingStatus => {
 };
 
 export const useChat = () => {
+  const queryClient = useQueryClient();
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const apiClient = useMemo(() => createApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
+  const conversationsListKey = useMemo(() => queryKeys.conversations.list(apiBaseUrl), [apiBaseUrl]);
+
+  const {
+    data: conversations = [],
+    isFetching: isRefreshingConversations,
+    refetch: refetchConversations,
+  } = useQuery(conversationsListQueryOptions(apiClient));
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>(null);
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
-  const [isRefreshingConversations, setIsRefreshingConversations] = useState(false);
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   /** When true, new messages still sync to the server but the thread is hidden from the recents list. */
   const [temporaryMode, setTemporaryMode] = useState(false);
@@ -63,46 +72,16 @@ export const useChat = () => {
     return input.trim().length > 0 && !isSending;
   }, [input, isSending]);
 
-  const refreshConversationHistory = async () => {
-    setIsRefreshingConversations(true);
-    try {
-      const rows = await listConversations(apiClient);
-      setConversations(rows);
-    } finally {
-      setIsRefreshingConversations(false);
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsRefreshingConversations(true);
-      try {
-        const rows = await listConversations(apiClient);
-        if (!cancelled) {
-          setConversations(rows);
-        }
-      } catch {
-        if (!cancelled) {
-          // Offline or server error: keep drawer usable for the current session.
-        }
-      } finally {
-        if (!cancelled) {
-          setIsRefreshingConversations(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiClient]);
+  const refreshConversationHistory = useCallback(async () => {
+    await refetchConversations();
+  }, [refetchConversations]);
 
   const upsertConversation = (conversationId: string, nextMessages: ChatMessage[]) => {
     const firstUserMessage = nextMessages.find((message) => message.role === 'user');
     const title = firstUserMessage ? firstUserMessage.content.slice(0, 40) : 'New conversation';
     const updatedAt = new Date().toISOString();
 
-    setConversations((current) => {
+    queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) => {
       const existing = current.find((conversation) => conversation.id === conversationId);
       const updatedConversation: ChatConversation = {
         id: conversationId,
@@ -127,7 +106,7 @@ export const useChat = () => {
       conversationId = created.id;
       setActiveConversationId(conversationId);
       if (!hideFromRecents) {
-        setConversations((current) => {
+        queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) => {
           const next: ChatConversation = {
             id: created.id,
             title: created.title,
@@ -200,8 +179,7 @@ export const useChat = () => {
       if (!hideFromRecents) {
         upsertConversation(conversationId, finalizedMessages);
         try {
-          const refreshed = await listConversations(apiClient);
-          setConversations(refreshed);
+          await queryClient.refetchQueries({ queryKey: conversationsListKey });
         } catch {
           // keep upserted sidebar row if list refresh fails
         }
@@ -235,8 +213,7 @@ export const useChat = () => {
       if (!hideFromRecents) {
         upsertConversation(conversationId, loaded);
         try {
-          const refreshed = await listConversations(apiClient);
-          setConversations(refreshed);
+          await queryClient.refetchQueries({ queryKey: conversationsListKey });
         } catch {
           // keep upserted sidebar row if list refresh fails
         }
@@ -274,8 +251,7 @@ export const useChat = () => {
         if (!hideFromRecents) {
           upsertConversation(activeConversationId, remote);
           try {
-            const refreshed = await listConversations(apiClient);
-            setConversations(refreshed);
+            await queryClient.refetchQueries({ queryKey: conversationsListKey });
           } catch {
             // ignore
           }
@@ -303,8 +279,7 @@ export const useChat = () => {
       if (!hideFromRecents) {
         upsertConversation(activeConversationId, withAssistantMessage);
         try {
-          const refreshed = await listConversations(apiClient);
-          setConversations(refreshed);
+          await queryClient.refetchQueries({ queryKey: conversationsListKey });
         } catch {
           // ignore
         }
@@ -355,7 +330,9 @@ export const useChat = () => {
     }
     const id = activeConversationId;
     if (id) {
-      setConversations((current) => current.filter((conversation) => conversation.id !== id));
+      queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) =>
+        current.filter((conversation) => conversation.id !== id),
+      );
     }
     setTemporaryMode(false);
     clearConversation();
@@ -369,7 +346,9 @@ export const useChat = () => {
     setIsDeletingConversation(true);
     try {
       await deleteConversation(apiClient, conversationId);
-      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) =>
+        current.filter((conversation) => conversation.id !== conversationId),
+      );
       if (activeConversationId === conversationId) {
         setTemporaryMode(false);
         clearConversation();

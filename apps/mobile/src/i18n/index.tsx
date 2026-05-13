@@ -114,6 +114,19 @@ type Dictionary = {
     labelExecutionEnv: string;
     valueUnavailable: string;
   };
+  auth: {
+    signInTitle: string;
+    signInSubtitle: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    passwordLabel: string;
+    forgotPassword: string;
+    signInCta: string;
+    orSignInWith: string;
+    noAccount: string;
+    signUp: string;
+    socialComingSoon: string;
+  };
 };
 
 type LanguageContextValue = {

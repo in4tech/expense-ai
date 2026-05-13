@@ -14,15 +14,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
 import { BottomSheet } from '@/components/bottom-sheet';
 import { useToast } from '@/components/toast';
+import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { language, dictionary, toggleLanguage } = useLanguage();
@@ -50,7 +53,7 @@ export default function SettingsScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.navigate('/(tabs)/chat');
+      router.navigate(href.mainChat);
     }
   };
 
@@ -78,7 +81,7 @@ export default function SettingsScreen() {
 
   const onOpenDevSettings = useCallback(() => {
     void Haptics.selectionAsync();
-    router.push('/dev-settings');
+    router.push(href.mainDevSettings);
   }, [router]);
 
   const onLogout = useCallback(() => {
@@ -87,12 +90,9 @@ export default function SettingsScreen() {
   }, []);
 
   const confirmLogout = useCallback(() => {
-    showToast({
-      status: 'success',
-      title: dictionary.settings.logoutSuccess,
-      durationMs: 2600,
-    });
-  }, [dictionary.settings.logoutSuccess, showToast]);
+    queryClient.clear();
+    router.replace(href.authSignIn);
+  }, [queryClient, router]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={['top']}>
