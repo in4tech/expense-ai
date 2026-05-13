@@ -31,6 +31,8 @@ type Dictionary = {
     attachFile: string;
     removeAttachment: string;
     pickFileFailed: string;
+    composeMessageFailed: string;
+    chatActionFailed: string;
     attachMenuTitle: string;
     attachMenuPhoto: string;
     attachMenuDocument: string;
@@ -88,6 +90,29 @@ type Dictionary = {
     deactivateConfirmMessage: string;
     cancel: string;
     confirm: string;
+    settingsPrivacySection: string;
+    helpSupportSection: string;
+    developerSection: string;
+    appLanguage: string;
+    logout: string;
+    devSettings: string;
+    logoutConfirmTitle: string;
+    logoutConfirmMessage: string;
+    logoutSuccess: string;
+  };
+  devSettings: {
+    title: string;
+    showSampleToast: string;
+    toastSampleTitle: string;
+    toastSampleDescription: string;
+    appInfo: string;
+    labelName: string;
+    labelSlug: string;
+    labelVersion: string;
+    labelNativeVersion: string;
+    labelNativeBuild: string;
+    labelExecutionEnv: string;
+    valueUnavailable: string;
   };
 };
 

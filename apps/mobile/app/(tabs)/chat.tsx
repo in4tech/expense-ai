@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -39,6 +38,7 @@ import {
   ChatFlatListItem,
 } from "@/src/features/chat/components";
 
+import { useToast } from "@/components/toast";
 import { useLanguage } from "@/src/i18n";
 import { Ionicons } from "@expo/vector-icons";
 import { getChatThemeColors } from "@/src/theme/chat-colors";
@@ -53,6 +53,7 @@ export default function ChatScreen() {
   const scrollToEndRafRef = useRef<number | null>(null);
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const { dictionary, language } = useLanguage();
+  const { showToast } = useToast();
   const {
     messages,
     hasMessages,
@@ -192,7 +193,11 @@ export default function ChatScreen() {
         try {
           await sendMessage(prompt);
         } catch {
-          /* error surfaced via useChat */
+          showToast({
+            status: "error",
+            title: dictionary.chat.chatActionFailed,
+            durationMs: 3200,
+          });
         }
         return;
       }
@@ -219,7 +224,11 @@ export default function ChatScreen() {
             mimeType: attachmentToSend.mimeType,
           });
         } catch {
-          /* useChat sets error */
+          showToast({
+            status: "error",
+            title: dictionary.chat.chatActionFailed,
+            durationMs: 3200,
+          });
         }
         return;
       }
@@ -231,7 +240,11 @@ export default function ChatScreen() {
           binaryDocumentFallback: dictionary.chat.binaryDocumentFallback,
         });
       } catch {
-        Alert.alert("", dictionary.chat.pickFileFailed);
+        showToast({
+          status: "error",
+          title: dictionary.chat.composeMessageFailed,
+          durationMs: 3200,
+        });
         return;
       }
       const trimmed = composed?.trim();
@@ -239,7 +252,11 @@ export default function ChatScreen() {
       try {
         await sendMessage(trimmed);
       } catch {
-        /* useChat sets error */
+        showToast({
+          status: "error",
+          title: dictionary.chat.chatActionFailed,
+          durationMs: 3200,
+        });
       }
     },
     [
@@ -250,6 +267,7 @@ export default function ChatScreen() {
       dictionary.chat,
       setInput,
       setPickedAttachment,
+      showToast,
     ],
   );
 

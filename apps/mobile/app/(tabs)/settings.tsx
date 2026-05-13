@@ -13,21 +13,22 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 
+import { BottomSheet } from '@/components/bottom-sheet';
+import { useToast } from '@/components/toast';
 import { useLanguage } from '@/src/i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const AVATAR_URI = 'https://i.pravatar.cc/160?img=68';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { language, dictionary, toggleLanguage } = useLanguage();
+  const { showToast } = useToast();
   const [darkMode, setDarkMode] = useState(isDark);
+  const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
 
   useEffect(() => {
     setDarkMode(isDark);
@@ -75,6 +76,24 @@ export default function SettingsScreen() {
     toggleLanguage();
   }, [toggleLanguage]);
 
+  const onOpenDevSettings = useCallback(() => {
+    void Haptics.selectionAsync();
+    router.push('/dev-settings');
+  }, [router]);
+
+  const onLogout = useCallback(() => {
+    void Haptics.selectionAsync();
+    setLogoutSheetOpen(true);
+  }, []);
+
+  const confirmLogout = useCallback(() => {
+    showToast({
+      status: 'success',
+      title: dictionary.settings.logoutSuccess,
+      durationMs: 2600,
+    });
+  }, [dictionary.settings.logoutSuccess, showToast]);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={['top']}>
       <View style={styles.header}>
@@ -93,30 +112,13 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <Pressable
-          style={[styles.card, styles.profileCard, { backgroundColor: c.card }]}
-          onPress={comingSoon}>
-          <Image source={{ uri: AVATAR_URI }} style={styles.avatar} contentFit="cover" transition={200} />
-          <View style={styles.profileTextBlock}>
-            <Text style={[styles.profileName, { color: c.text }]}>{dictionary.settings.profileName}</Text>
-            <Text style={[styles.profileRole, { color: c.textSecondary }]}>{dictionary.settings.profileRole}</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={c.chevron} />
-        </Pressable>
-
-        <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>{dictionary.settings.otherSettings}</Text>
+        <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
+          {dictionary.settings.settingsPrivacySection}
+        </Text>
         <View style={[styles.card, { backgroundColor: c.card }]}>
           <SettingsRow
             icon="person-outline"
             label={dictionary.settings.profileDetails}
-            onPress={comingSoon}
-            dividerColor={c.divider}
-            textColor={c.text}
-            chevronColor={c.chevron}
-          />
-          <SettingsRow
-            icon="lock-closed-outline"
-            label={dictionary.settings.password}
             onPress={comingSoon}
             dividerColor={c.divider}
             textColor={c.text}
@@ -132,7 +134,7 @@ export default function SettingsScreen() {
           />
           <SettingsRow
             icon="language-outline"
-            label={dictionary.settings.language}
+            label={dictionary.settings.appLanguage}
             onPress={onLanguageRowPress}
             dividerColor={c.divider}
             textColor={c.text}
@@ -162,32 +164,74 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <View style={[styles.card, styles.bottomCard, { backgroundColor: c.card }]}>
-          <SettingsRow
-            icon="information-circle-outline"
-            label={dictionary.settings.aboutApp}
-            onPress={comingSoon}
-            dividerColor={c.divider}
-            textColor={c.text}
-            chevronColor={c.chevron}
-          />
-          <SettingsRow
-            icon="chatbubble-ellipses-outline"
-            label={dictionary.settings.helpFaq}
-            onPress={comingSoon}
-            dividerColor={c.divider}
-            textColor={c.text}
-            chevronColor={c.chevron}
-          />
-          <Pressable onPress={onDeactivate} android_ripple={{ color: '#ff000022' }}>
-            <View style={styles.rowInner}>
-              <Ionicons name="trash-outline" size={22} color={c.danger} />
-              <Text style={[styles.rowLabel, { color: c.danger }]}>{dictionary.settings.deactivateAccount}</Text>
-              <Ionicons name="chevron-forward" size={20} color={c.chevron} style={styles.rowChevron} />
-            </View>
-          </Pressable>
+        <View style={styles.sectionBlock}>
+          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
+            {dictionary.settings.helpSupportSection}
+          </Text>
+          <View style={[styles.card, { backgroundColor: c.card }]}>
+            <SettingsRow
+              icon="information-circle-outline"
+              label={dictionary.settings.aboutApp}
+              onPress={comingSoon}
+              dividerColor={c.divider}
+              textColor={c.text}
+              chevronColor={c.chevron}
+            />
+            <SettingsRow
+              icon="chatbubble-ellipses-outline"
+              label={dictionary.settings.helpFaq}
+              onPress={comingSoon}
+              dividerColor={c.divider}
+              textColor={c.text}
+              chevronColor={c.chevron}
+            />
+            <Pressable onPress={onDeactivate} android_ripple={{ color: '#ff000022' }}>
+              <View style={styles.rowInner}>
+                <Ionicons name="trash-outline" size={22} color={c.danger} />
+                <Text style={[styles.rowLabel, { color: c.danger }]}>{dictionary.settings.deactivateAccount}</Text>
+                <Ionicons name="chevron-forward" size={20} color={c.chevron} style={styles.rowChevron} />
+              </View>
+            </Pressable>
+          </View>
+        </View>
+
+        <View style={styles.sectionBlock}>
+          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
+            {dictionary.settings.developerSection}
+          </Text>
+          <View style={[styles.card, { backgroundColor: c.card }]}>
+            <SettingsRow
+              icon="code-slash-outline"
+              label={dictionary.settings.devSettings}
+              onPress={onOpenDevSettings}
+              dividerColor={c.divider}
+              textColor={c.text}
+              chevronColor={c.chevron}
+            />
+            <Pressable onPress={onLogout} android_ripple={{ color: '#ff000022' }}>
+              <View style={styles.rowInner}>
+                <Ionicons name="log-out-outline" size={22} color={c.danger} />
+                <Text style={[styles.rowLabel, { color: c.danger }]}>{dictionary.settings.logout}</Text>
+                <Ionicons name="chevron-forward" size={20} color={c.chevron} style={styles.rowChevron} />
+              </View>
+            </Pressable>
+          </View>
         </View>
       </ScrollView>
+
+      <BottomSheet
+        open={logoutSheetOpen}
+        onOpenChange={setLogoutSheetOpen}
+        title={dictionary.settings.logoutConfirmTitle}
+        message={dictionary.settings.logoutConfirmMessage}
+        actions={[
+          {
+            label: dictionary.settings.logout,
+            variant: 'destructive',
+            onPress: confirmLogout,
+          },
+        ]}
+      />
     </SafeAreaView>
   );
 }
@@ -275,6 +319,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 32,
   },
+  sectionBlock: {
+    marginTop: 22,
+  },
   card: {
     borderRadius: 15,
     paddingVertical: 4,
@@ -284,37 +331,10 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 22,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    marginRight: 14,
-  },
-  profileTextBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  profileName: {
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  profileRole: {
-    fontSize: 14,
-  },
   sectionLabel: {
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 10,
-  },
-  bottomCard: {
-    marginTop: 18,
   },
   rowInner: {
     flexDirection: 'row',
