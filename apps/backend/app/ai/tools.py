@@ -3,6 +3,29 @@ TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "search_web",
+            "description": """
+            Search realtime internet data.
+            User for:
+            - latest news
+            - current events
+            - factual internet lookup
+            - realtime information
+            """,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "search_documents",
             "description": """
             Search relevant document chunks

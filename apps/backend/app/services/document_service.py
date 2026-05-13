@@ -1,10 +1,9 @@
-import os
-
 from openai import AsyncOpenAI
 from pypdf import PdfReader
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.db.models.document import DocumentChunk
 
 def extract_pdf_text(file):
@@ -101,8 +100,7 @@ async def keyboard_search_documents(
 async def summarize_pdf(text):
     truncated_text = text[:12000]
 
-    api_key = os.getenv("OPENAI_API_KEY")
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     response = await client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[

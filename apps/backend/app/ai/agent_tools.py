@@ -4,6 +4,7 @@
 from app.services.embedding_service import create_embedding
 from app.services.document_service import search_document_chunks
 from app.services.chat_service import get_messages
+from app.services.web_search_service import search_web
 
 
 async def search_documents_tool(
@@ -54,3 +55,7 @@ async def get_recent_messages_tool(
         
     return result
 
+async def search_web_tool(query):
+    result = await search_web(query)
+
+    return result

@@ -1,7 +1,5 @@
-import os
 import json
 
-from this import d
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
@@ -13,10 +11,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 from app.services import chat_service, embedding_service, document_service
+from app.services.memory_service import create_memory, extract_memory, search_memories
+from app.config import settings
+
 from app.ai.tools import TOOLS
-from app.ai.agent_tools import get_recent_messages_tool, search_documents_tool
+from app.ai.agent_tools import get_recent_messages_tool, search_documents_tool, search_web_tool
+from app.db.models import memory
 
 router = APIRouter()
+MAX_INTERATION = 5
 
 def sse_event(data):
     return (
@@ -39,6 +42,7 @@ class SendMessageBody(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
 
 class ChatRequest(BaseModel):
+    user_id: int
     conversation_id: int
     message: str = Field(..., min_length=1, max_length=10000)
 
@@ -115,7 +119,7 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
@@ -159,7 +163,7 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
@@ -298,34 +302,65 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
     )
 
 # NEW: v2
-MAX_INTERATION = 5
 @router.post("/chat-stream")
 async def chat_stream(request: ChatRequest, db: DbSession):
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
-    user_embedding = await embedding_service.create_embedding(request.message)
+    user_id, conversation_id, message = request
+
+    user_embedding = await embedding_service.create_embedding(message)
 
     await chat_service.create_message(
         db=db,
-        conversation_id=request.conversation_id,
+        conversation_id=conversation_id,
         role="user",
-        content=request.message,
+        content=message,
         embedding=user_embedding
     )
 
+    memory_data = await extract_memory(message)
+
+    if(memory_data.get("should_save")):
+        memory_content = memory_data["memory"]
+
+        memory_embedding = embedding_service.create_embedding(memory_content)
+
+        await create_memory(
+            db=db,
+            user_id=user_id,
+            content=memory_content,
+            embedding=memory_embedding,
+            memory_type=memory_data["memory_type"]
+        )
+
+    relevant_memories = await search_memories(
+        db=db,
+        user_id=user_id,
+        embedding=user_embedding,
+        limit=5
+    )
+
+    memory_context = ""
+    for memory in relevant_memories:
+        memory_context += f"- {memory.content}\n"
+
     history = await chat_service.get_messages(
         db=db,
-        conversation_id=request.conversation_id,
+        conversation_id=conversation_id,
         limit=20
     )
 
     message_for_agent = [
         {
             "role": "system",
-            "content": """ 
+            "content": f""" 
             You are a friendly AI Assistant.
+
+            Known user memories:
+
+            {memory_context}
 
             You can:
             - Search documents
@@ -396,15 +431,21 @@ async def chat_stream(request: ChatRequest, db: DbSession):
                     result = await search_documents_tool(
                         db=db,
                         query=arguments["query"],
-                        conversation_id=request.conversation_id
+                        conversation_id=conversation_id
                     )
 
                 elif(tool_name == "get_recent_messages"):
                     result = await get_recent_messages_tool(
                         db=db,
-                        conversation_id=request.conversation_id,
+                        conversation_id=conversation_id,
                         limit=arguments.get("limit", 10)
                     )
+
+                elif(tool_name == "search_web"):
+                    result = await search_web_tool(
+                        query=arguments["query"]
+                    )
+
                 else:
                     result = "Unknown tool"
 
@@ -442,7 +483,7 @@ async def chat_stream(request: ChatRequest, db: DbSession):
 
         await chat_service.create_message(
             db=db,
-            conversation_id=request.conversation_id,
+            conversation_id=conversation_id,
             role="assistant",
             content=full_response,
             embedding=ai_embedding
