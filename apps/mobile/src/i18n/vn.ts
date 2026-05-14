@@ -16,6 +16,8 @@ export const vn = {
     typing: 'AI đang trả lời...',
     statusSearchingDocuments: 'Đang tìm tài liệu...',
     statusReadingPdf: 'Đang đọc PDF...',
+    statusSearchingWeb: 'Đang tìm trên web...',
+    statusReflecting: 'Đang rà soát câu trả lời...',
     statusGeneratingAnswer: 'Đang soạn câu trả lời...',
     retry: 'Gửi lại tin nhắn gần nhất',
     inputPlaceholder: 'Nhập tin nhắn...',

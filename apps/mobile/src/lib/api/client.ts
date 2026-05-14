@@ -1,3 +1,10 @@
+import {
+  headersToLogRecord,
+  readResponseBodyForLog,
+  resolveApiRequestLogging,
+  summarizeRequestBodyForLog,
+} from '@/src/lib/api/request-log';
+
 export const normalizeBaseUrl = (apiBaseUrl: string) => apiBaseUrl.replace(/\/$/, '');
 
 type ApiErrorPayload = { detail?: string };
@@ -18,14 +25,14 @@ const parseJson = async (response: Response): Promise<unknown> => {
 
 export type CreateApiClientConfig = {
   baseUrl: string;
-  /** Gắn thêm mọi request (ví dụ `Accept`, `X-Client-Version`). */
   defaultHeaders?: Record<string, string>;
-  /** Chuẩn bị cho auth sau này — trả về token thì client sẽ gửi `Authorization: Bearer …`. */
   getAccessToken?: () => string | undefined;
+  enableRequestLogging?: boolean;
 };
 
 export function createApiClient(config: CreateApiClientConfig) {
   const normalizedBase = normalizeBaseUrl(config.baseUrl);
+  const logRequests = resolveApiRequestLogging(config.enableRequestLogging);
 
   const buildUrl = (path: string) => {
     const suffix = path.startsWith('/') ? path : `/${path}`;
@@ -52,14 +59,36 @@ export function createApiClient(config: CreateApiClientConfig) {
     return headers;
   };
 
-  /**
-   * `fetch` gốc với URL đã gắn base và headers mặc định.
-   * Dùng cho FormData / upload — không set `Content-Type` để RN tự gắn boundary.
-   */
   const request = async (path: string, init: RequestInit = {}): Promise<Response> => {
     const url = buildUrl(path);
     const headers = mergeHeaders(init.headers);
-    return fetch(url, { ...init, headers });
+    const method = (init.method ?? 'GET').toUpperCase();
+
+    if (logRequests) {
+      console.log(`[API] → ${method} ${url}`);
+      console.log('[API]   headers', headersToLogRecord(headers));
+      console.log('[API]   body', summarizeRequestBodyForLog(init.body));
+    }
+
+    const started = logRequests ? Date.now() : 0;
+    let response: Response;
+    try {
+      response = await fetch(url, { ...init, headers });
+    } catch (error) {
+      if (logRequests) {
+        console.log(`[API] ✖ ${method} ${url} network error`, error);
+      }
+      throw error;
+    }
+
+    if (logRequests) {
+      const ms = Date.now() - started;
+      const bodyPreview = await readResponseBodyForLog(response);
+      console.log(`[API] ← ${method} ${url} ${response.status} ${response.statusText} (${ms}ms)`);
+      console.log('[API]   body', bodyPreview);
+    }
+
+    return response;
   };
 
   const throwIfJsonError = async (response: Response, path: string, fallback: string) => {

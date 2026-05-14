@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { DEFAULT_API_BASE_URL } from '@/src/config/env';
+import { DEFAULT_API_BASE_URL } from "@/src/config/env";
 import {
   completeAssistantReply,
   conversationsListQueryOptions,
@@ -11,43 +11,82 @@ import {
   type SsePayload,
   sendConversationMessage,
   uploadConversationPdf,
-} from '@/src/features/chat/api';
-import { createApiClient } from '@/src/lib/api';
-import { queryKeys } from '@/src/query/query-keys';
-import { ChatConversation, ChatMessage, ChatResponse } from '@/src/features/chat/types';
+} from "@/src/features/chat/api";
+import { createApiClient } from "@/src/lib/api";
+import { queryKeys } from "@/src/query/query-keys";
+import {
+  ChatConversation,
+  ChatMessage,
+  ChatResponse,
+} from "@/src/features/chat/types";
 
-const buildMessage = (role: ChatMessage['role'], content: string): ChatMessage => ({
+const buildMessage = (
+  role: ChatMessage["role"],
+  content: string,
+): ChatMessage => ({
   id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
   role,
   content,
   createdAt: new Date().toISOString(),
 });
 
-export type StreamingStatus = 'searching_documents' | 'reading_pdf' | 'generating_answer' | null;
+export type StreamingStatus =
+  | "searching_documents"
+  | "reading_pdf"
+  | "searching_web"
+  | "reflecting"
+  | "generating_answer"
+  | null;
 
-const mapStreamingStatusFromEvent = (event: SsePayload): StreamingStatus => {
-  if (event.type === 'content' || event.type === 'done') {
-    return 'generating_answer';
+/** Maps backend SSE events to composer status; `undefined` means leave current status unchanged. */
+const mapStreamingStatusFromEvent = (
+  event: SsePayload,
+): StreamingStatus | undefined => {
+  if (event.type === "content" || event.type === "done") {
+    return "generating_answer";
   }
-  if (event.type === 'tool' && event.status === 'running') {
-    if (event.tool === 'search_documents') {
-      return 'searching_documents';
+  if (event.type === "tool_running") {
+    if (event.tool === "search_knowledge_base") {
+      return "searching_documents";
     }
-    if (event.tool === 'get_recent_messages') {
-      return 'reading_pdf';
+    if (event.tool === "search_web") {
+      return "searching_web";
     }
+    return "generating_answer";
   }
-  if (event.type === 'thinking') {
-    return 'generating_answer';
+
+  if (event.type === "tool_completed") {
+    return "generating_answer";
   }
-  return null;
+
+  if (event.type === "thinking") {
+    return "generating_answer";
+  }
+
+  if (event.type === "reflection") {
+    if (event.status === "running") {
+      return "reflecting";
+    }
+    return "generating_answer";
+  }
+
+  if (event.type === "error") {
+    return undefined;
+  }
+  return undefined;
 };
 
 export const useChat = () => {
   const queryClient = useQueryClient();
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
-  const apiClient = useMemo(() => createApiClient({ baseUrl: apiBaseUrl }), [apiBaseUrl]);
-  const conversationsListKey = useMemo(() => queryKeys.conversations.list(apiBaseUrl), [apiBaseUrl]);
+  const apiClient = useMemo(
+    () => createApiClient({ baseUrl: apiBaseUrl }),
+    [apiBaseUrl],
+  );
+  const conversationsListKey = useMemo(
+    () => queryKeys.conversations.list(apiBaseUrl),
+    [apiBaseUrl],
+  );
 
   const {
     data: conversations = [],
@@ -56,8 +95,10 @@ export const useChat = () => {
   } = useQuery(conversationsListQueryOptions(apiClient));
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
-  const [input, setInput] = useState('');
+  const [activeConversationId, setActiveConversationId] = useState<
+    string | null
+  >(null);
+  const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamingStatus, setStreamingStatus] = useState<StreamingStatus>(null);
@@ -76,47 +117,66 @@ export const useChat = () => {
     await refetchConversations();
   }, [refetchConversations]);
 
-  const upsertConversation = (conversationId: string, nextMessages: ChatMessage[]) => {
-    const firstUserMessage = nextMessages.find((message) => message.role === 'user');
-    const title = firstUserMessage ? firstUserMessage.content.slice(0, 40) : 'New conversation';
+  const upsertConversation = (
+    conversationId: string,
+    nextMessages: ChatMessage[],
+  ) => {
+    const firstUserMessage = nextMessages.find(
+      (message) => message.role === "user",
+    );
+    const title = firstUserMessage
+      ? firstUserMessage.content.slice(0, 40)
+      : "New conversation";
     const updatedAt = new Date().toISOString();
 
-    queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) => {
-      const existing = current.find((conversation) => conversation.id === conversationId);
-      const updatedConversation: ChatConversation = {
-        id: conversationId,
-        title,
-        updatedAt,
-        messages: nextMessages,
-      };
+    queryClient.setQueryData<ChatConversation[]>(
+      conversationsListKey,
+      (current = []) => {
+        const existing = current.find(
+          (conversation) => conversation.id === conversationId,
+        );
+        const updatedConversation: ChatConversation = {
+          id: conversationId,
+          title,
+          updatedAt,
+          messages: nextMessages,
+        };
 
-      if (!existing) {
-        return [updatedConversation, ...current];
-      }
+        if (!existing) {
+          return [updatedConversation, ...current];
+        }
 
-      const others = current.filter((conversation) => conversation.id !== conversationId);
-      return [updatedConversation, ...others];
-    });
+        const others = current.filter(
+          (conversation) => conversation.id !== conversationId,
+        );
+        return [updatedConversation, ...others];
+      },
+    );
   };
 
-  const ensureConversation = async (hideFromRecents: boolean): Promise<string> => {
+  const ensureConversation = async (
+    hideFromRecents: boolean,
+  ): Promise<string> => {
     let conversationId = activeConversationId;
     if (!conversationId) {
       const created = await createConversation(apiClient);
       conversationId = created.id;
       setActiveConversationId(conversationId);
       if (!hideFromRecents) {
-        queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) => {
-          const next: ChatConversation = {
-            id: created.id,
-            title: created.title,
-            updatedAt: created.updatedAt,
-          };
-          if (current.some((c) => c.id === created.id)) {
-            return [next, ...current.filter((c) => c.id !== created.id)];
-          }
-          return [next, ...current];
-        });
+        queryClient.setQueryData<ChatConversation[]>(
+          conversationsListKey,
+          (current = []) => {
+            const next: ChatConversation = {
+              id: created.id,
+              title: created.title,
+              updatedAt: created.updatedAt,
+            };
+            if (current.some((c) => c.id === created.id)) {
+              return [next, ...current.filter((c) => c.id !== created.id)];
+            }
+            return [next, ...current];
+          },
+        );
       }
     }
     return conversationId;
@@ -131,7 +191,7 @@ export const useChat = () => {
     const hideFromRecents = temporaryMode;
 
     setError(null);
-    setStreamingStatus('generating_answer');
+    setStreamingStatus("generating_answer");
     setIsSending(true);
 
     let conversationId = activeConversationId;
@@ -141,39 +201,52 @@ export const useChat = () => {
         conversationId = await ensureConversation(hideFromRecents);
       }
 
-      const withUserMessage: ChatMessage[] = [...messages, buildMessage('user', content)];
+      const withUserMessage: ChatMessage[] = [
+        ...messages,
+        buildMessage("user", content),
+      ];
       setMessages(withUserMessage);
       setLastUserMessage(content);
       if (!hideFromRecents) {
         upsertConversation(conversationId, withUserMessage);
       }
 
-      const assistantMessage = buildMessage('assistant', '');
+      const assistantMessage = buildMessage("assistant", "");
       const assistantMessageId = assistantMessage.id;
       const withAssistantMessage = [...withUserMessage, assistantMessage];
       setMessages(withAssistantMessage);
 
-      let streamedReply = '';
-      const response = await sendConversationMessage(apiClient, conversationId, content, {
-        onDelta: (delta) => {
-          streamedReply += delta;
-          setMessages((current) =>
-            current.map((message) =>
-              message.id === assistantMessageId ? { ...message, content: streamedReply } : message
-            )
-          );
+      let streamedReply = "";
+      const response = await sendConversationMessage(
+        apiClient,
+        conversationId,
+        content,
+        {
+          onDelta: (delta) => {
+            streamedReply += delta;
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === assistantMessageId
+                  ? { ...message, content: streamedReply }
+                  : message,
+              ),
+            );
+          },
+          onEvent: (event) => {
+            const next = mapStreamingStatusFromEvent(event);
+            if (next !== undefined) {
+              setStreamingStatus(next);
+            }
+          },
         },
-        onEvent: (event) => {
-          const next = mapStreamingStatusFromEvent(event);
-          if (next) {
-            setStreamingStatus(next);
-          }
-        },
-      });
+      );
 
-      const finalReply = streamedReply || response.reply;
+      const finalReply =
+        response.reply.trim().length > 0 ? response.reply : streamedReply;
       const finalizedMessages = withAssistantMessage.map((message) =>
-        message.id === assistantMessageId ? { ...message, content: finalReply } : message
+        message.id === assistantMessageId
+          ? { ...message, content: finalReply }
+          : message,
       );
       setMessages(finalizedMessages);
       if (!hideFromRecents) {
@@ -184,10 +257,17 @@ export const useChat = () => {
           // keep upserted sidebar row if list refresh fails
         }
       }
-      setInput('');
+      setInput("");
     } catch (sendError) {
-      setMessages((current) => current.filter((message) => !(message.role === 'assistant' && !message.content)));
-      const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
+      setMessages((current) =>
+        current.filter(
+          (message) => !(message.role === "assistant" && !message.content),
+        ),
+      );
+      const msg =
+        sendError instanceof Error
+          ? sendError.message
+          : "Không thể gửi tin nhắn.";
       setError(msg);
       throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
@@ -196,7 +276,11 @@ export const useChat = () => {
     }
   };
 
-  const uploadPdf = async (file: { uri: string; name: string; mimeType?: string }) => {
+  const uploadPdf = async (file: {
+    uri: string;
+    name: string;
+    mimeType?: string;
+  }) => {
     if (isSending) {
       return;
     }
@@ -218,9 +302,12 @@ export const useChat = () => {
           // keep upserted sidebar row if list refresh fails
         }
       }
-      setInput('');
+      setInput("");
     } catch (uploadError) {
-      const msg = uploadError instanceof Error ? uploadError.message : 'Không thể tải PDF.';
+      const msg =
+        uploadError instanceof Error
+          ? uploadError.message
+          : "Không thể tải PDF.";
       setError(msg);
       throw uploadError instanceof Error ? uploadError : new Error(msg);
     } finally {
@@ -229,29 +316,39 @@ export const useChat = () => {
   };
 
   const retryLastMessage = async () => {
-    if (!lastUserMessage || isSending || messages.length === 0 || !activeConversationId) {
+    if (
+      !lastUserMessage ||
+      isSending ||
+      messages.length === 0 ||
+      !activeConversationId
+    ) {
       return;
     }
     const last = messages[messages.length - 1];
-    if (last.role !== 'user' || last.content !== lastUserMessage) {
+    if (last.role !== "user" || last.content !== lastUserMessage) {
       return;
     }
 
     const hideFromRecents = temporaryMode;
 
     setError(null);
-    setStreamingStatus('generating_answer');
+    setStreamingStatus("generating_answer");
     setIsSending(true);
     try {
-      const remote = await getConversationMessages(apiClient, activeConversationId);
+      const remote = await getConversationMessages(
+        apiClient,
+        activeConversationId,
+      );
       const lastRemote = remote[remote.length - 1];
 
-      if (lastRemote?.role === 'assistant') {
+      if (lastRemote?.role === "assistant") {
         setMessages(remote);
         if (!hideFromRecents) {
           upsertConversation(activeConversationId, remote);
           try {
-            await queryClient.refetchQueries({ queryKey: conversationsListKey });
+            await queryClient.refetchQueries({
+              queryKey: conversationsListKey,
+            });
           } catch {
             // ignore
           }
@@ -260,20 +357,31 @@ export const useChat = () => {
       }
 
       let response: ChatResponse;
-      if (lastRemote?.role === 'user' && lastRemote.content === lastUserMessage) {
-        response = await completeAssistantReply(apiClient, activeConversationId);
+      if (
+        lastRemote?.role === "user" &&
+        lastRemote.content === lastUserMessage
+      ) {
+        response = await completeAssistantReply(
+          apiClient,
+          activeConversationId,
+        );
       } else {
-        response = await sendConversationMessage(apiClient, activeConversationId, lastUserMessage, {
-          onEvent: (event) => {
-            const next = mapStreamingStatusFromEvent(event);
-            if (next) {
-              setStreamingStatus(next);
-            }
+        response = await sendConversationMessage(
+          apiClient,
+          activeConversationId,
+          lastUserMessage,
+          {
+            onEvent: (event) => {
+              const next = mapStreamingStatusFromEvent(event);
+              if (next !== undefined) {
+                setStreamingStatus(next);
+              }
+            },
           },
-        });
+        );
       }
 
-      const assistantMessage = buildMessage('assistant', response.reply);
+      const assistantMessage = buildMessage("assistant", response.reply);
       const withAssistantMessage = [...messages, assistantMessage];
       setMessages(withAssistantMessage);
       if (!hideFromRecents) {
@@ -285,7 +393,10 @@ export const useChat = () => {
         }
       }
     } catch (sendError) {
-      const msg = sendError instanceof Error ? sendError.message : 'Không thể gửi tin nhắn.';
+      const msg =
+        sendError instanceof Error
+          ? sendError.message
+          : "Không thể gửi tin nhắn.";
       setError(msg);
       throw sendError instanceof Error ? sendError : new Error(msg);
     } finally {
@@ -313,7 +424,11 @@ export const useChat = () => {
       setActiveConversationId(conversationId);
       setLastUserMessage(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Không thể tải cuộc trò chuyện.');
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Không thể tải cuộc trò chuyện.",
+      );
     }
   };
 
@@ -330,8 +445,10 @@ export const useChat = () => {
     }
     const id = activeConversationId;
     if (id) {
-      queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) =>
-        current.filter((conversation) => conversation.id !== id),
+      queryClient.setQueryData<ChatConversation[]>(
+        conversationsListKey,
+        (current = []) =>
+          current.filter((conversation) => conversation.id !== id),
       );
     }
     setTemporaryMode(false);
@@ -346,15 +463,20 @@ export const useChat = () => {
     setIsDeletingConversation(true);
     try {
       await deleteConversation(apiClient, conversationId);
-      queryClient.setQueryData<ChatConversation[]>(conversationsListKey, (current = []) =>
-        current.filter((conversation) => conversation.id !== conversationId),
+      queryClient.setQueryData<ChatConversation[]>(
+        conversationsListKey,
+        (current = []) =>
+          current.filter((conversation) => conversation.id !== conversationId),
       );
       if (activeConversationId === conversationId) {
         setTemporaryMode(false);
         clearConversation();
       }
     } catch (deleteError) {
-      const msg = deleteError instanceof Error ? deleteError.message : 'Không thể xóa cuộc trò chuyện.';
+      const msg =
+        deleteError instanceof Error
+          ? deleteError.message
+          : "Không thể xóa cuộc trò chuyện.";
       setError(msg);
       throw deleteError instanceof Error ? deleteError : new Error(msg);
     } finally {

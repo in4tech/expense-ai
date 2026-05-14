@@ -16,6 +16,8 @@ export const en = {
     typing: 'AI is typing...',
     statusSearchingDocuments: 'Searching documents...',
     statusReadingPdf: 'Reading PDF...',
+    statusSearchingWeb: 'Searching the web...',
+    statusReflecting: 'Reviewing answer...',
     statusGeneratingAnswer: 'Generating answer...',
     retry: 'Retry last message',
     inputPlaceholder: 'Type a message...',

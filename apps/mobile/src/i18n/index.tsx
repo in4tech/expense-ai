@@ -22,6 +22,8 @@ type Dictionary = {
     typing: string;
     statusSearchingDocuments: string;
     statusReadingPdf: string;
+    statusSearchingWeb: string;
+    statusReflecting: string;
     statusGeneratingAnswer: string;
     retry: string;
     inputPlaceholder: string;

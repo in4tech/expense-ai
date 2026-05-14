@@ -15,6 +15,7 @@ from app.core.config import settings
 
 from app.ai.tools import TOOLS
 from app.ai.agent_tools import TOOLS_MAP
+from app.ai.reflection_service import reflection_pipeline
 
 router = APIRouter()
 MAX_INTERATION = 5
@@ -281,41 +282,64 @@ async def chat_stream(
                     })
 
             continue
-            
+
+        # ====================================
+        # DRAFT ANSWER
+        # ====================================
+        draft_answer = message.content
+        yield sse_event({
+            "type": "reflection",
+            "status": "running"
+        })
+
+        reflection_result = await reflection_pipeline(
+            user_query=message,
+            draft_answer=draft_answer
+        )
+
+        final_answer = reflection_result["final_answer"]
+        messages.append({
+            "role": "system",
+            "content": final_answer
+        })
+        yield sse_event({
+            "type": "reflection",
+            "status": "completed",
+        })
 
         # ====================================
         # FINAL STREAMING
         # ====================================
+        final_response = ""
         stream = await client.chat.completions.create(
             model=CHAT_MODELS,
             messages=messages,
             stream=True
         )
-        
-        full_response = ""
+
         async for chunk in stream:
             delta = chunk.choices[0].delta.content
 
             if delta:
-                full_response += delta
-
+                final_response += delta
                 yield sse_event({
                     "type": "content",
                     "content": delta
                 })
-            
-        ai_embedding = await embedding_service.create_embedding(full_response)
+
+
+        ai_embedding = await embedding_service.create_embedding(final_response)
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
             role="assistant",
-            content=full_response,
+            content=final_response,
             embedding=ai_embedding
         )
 
         yield sse_event({
             "type": "done",
-            "content": full_response
+            "content": final_response
         })
 
     return StreamingResponse(

@@ -127,6 +127,12 @@ export default function ChatScreen() {
     if (streamingStatus === "reading_pdf") {
       return dictionary.chat.statusReadingPdf;
     }
+    if (streamingStatus === "searching_web") {
+      return dictionary.chat.statusSearchingWeb;
+    }
+    if (streamingStatus === "reflecting") {
+      return dictionary.chat.statusReflecting;
+    }
     if (streamingStatus === "generating_answer") {
       return dictionary.chat.statusGeneratingAnswer;
     }
@@ -135,6 +141,8 @@ export default function ChatScreen() {
     streamingStatus,
     dictionary.chat.statusSearchingDocuments,
     dictionary.chat.statusReadingPdf,
+    dictionary.chat.statusSearchingWeb,
+    dictionary.chat.statusReflecting,
     dictionary.chat.statusGeneratingAnswer,
     dictionary.chat.typing,
   ]);

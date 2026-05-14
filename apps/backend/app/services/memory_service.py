@@ -72,7 +72,7 @@ async def keyword_search_memories(
     return result.scalars().all()
 
 async def extract_memory(message):
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model=CHAT_MODELS,
             response_format={
                 "type": "json_object"

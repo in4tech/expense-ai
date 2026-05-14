@@ -1,20 +1,43 @@
-import { DEFAULT_DEV_USER_ID } from '@/src/config/default-user';
-import { apiPaths, type ApiClient } from '@/src/lib/api';
-import type { ChatResponse } from '@/src/features/chat/types';
-import EventSource from 'react-native-sse';
+import { DEFAULT_DEV_USER_ID } from "@/src/config/default-user";
+import { apiPaths, type ApiClient } from "@/src/lib/api";
+import { resolveApiRequestLogging } from "@/src/lib/api/request-log";
+import type { ChatResponse } from "@/src/features/chat/types";
+import EventSource from "react-native-sse";
 
-export type SsePayload = {
-  type?: string;
-  content?: string;
-  message?: string;
-  tool?: string;
-  status?: string;
-  iteration?: number;
+/** SSE `data:` JSON from POST `/conversations/{id}/chat-stream` (matches backend `sse_event` payloads). */
+export type SseThinkingEvent = { type: "thinking"; iteration: number };
+export type SseToolRunningEvent = { type: "tool_running"; tool: string };
+export type SseToolCompletedEvent = { type: "tool_completed"; tool: string };
+export type SseContentEvent = { type: "content"; content: string };
+export type SseReflectionEvent = {
+  type: "reflection";
+  status: "running" | "completed";
 };
+export type SseDoneEvent = { type: "done"; content?: string };
+export type SseErrorEvent = { type: "error"; message?: string };
+
+export type SsePayload =
+  | SseThinkingEvent
+  | SseToolRunningEvent
+  | SseToolCompletedEvent
+  | SseContentEvent
+  | SseReflectionEvent
+  | SseDoneEvent
+  | SseErrorEvent
+  /** Future / unknown server events: still delivered to `onEvent`. */
+  | (Record<string, unknown> & { type: string });
 
 const parseSsePayload = (rawData: string): SsePayload | null => {
   try {
-    return JSON.parse(rawData) as SsePayload;
+    const value = JSON.parse(rawData) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      return null;
+    }
+    const rec = value as Record<string, unknown>;
+    if (typeof rec.type !== "string") {
+      return null;
+    }
+    return value as SsePayload;
   } catch {
     return null;
   }
@@ -29,7 +52,7 @@ export type SendConversationMessageOptions = {
 
 /**
  * POST `/conversations/{conversationId}/chat-stream` — response is `text/event-stream` (SSE).
- * Each `data:` line is JSON; assistant tokens use `{ "type": "content", "content": "..." }`, end is `{ "type": "done" }`.
+ * Each `data:` line is JSON: `thinking`, `tool_running`, `tool_completed`, `content`, `reflection`, `done`, `error`.
  */
 export const sendConversationMessage = async (
   client: ApiClient,
@@ -39,23 +62,39 @@ export const sendConversationMessage = async (
 ): Promise<ChatResponse> => {
   const numericConversationId = Number(conversationId);
   if (!Number.isFinite(numericConversationId)) {
-    throw new Error('Invalid conversation id.');
+    throw new Error("Invalid conversation id.");
   }
   const onDelta = options?.onDelta ?? (() => {});
   const onEvent = options?.onEvent ?? (() => {});
+  const logApi = resolveApiRequestLogging(undefined);
 
   const reply = await new Promise<string>((resolve, reject) => {
-    const streamUrl = client.buildUrl(apiPaths.conversations.chatStream(conversationId));
-    let full = '';
+    const streamUrl = client.buildUrl(
+      apiPaths.conversations.chatStream(conversationId),
+    );
+    let full = "";
     let settled = false;
 
+    const streamBody = JSON.stringify({
+      message,
+      user_id: DEFAULT_DEV_USER_ID,
+    });
+    if (logApi) {
+      console.log(`[API] → SSE POST ${streamUrl}`);
+      console.log("[API]   headers", {
+        Accept: "text/event-stream",
+        "Content-Type": "application/json",
+      });
+      console.log("[API]   body", streamBody);
+    }
+
     const es = new EventSource(streamUrl, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        Accept: 'text/event-stream',
-        'Content-Type': 'application/json',
+        Accept: "text/event-stream",
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ message, user_id: DEFAULT_DEV_USER_ID }),
+      body: streamBody,
       pollingInterval: 0,
     });
 
@@ -66,6 +105,15 @@ export const sendConversationMessage = async (
       settled = true;
       es.removeAllEventListeners();
       es.close();
+      if (logApi) {
+        if (error) {
+          console.log(`[API] ← SSE POST ${streamUrl} error`, error.message);
+        } else {
+          console.log(
+            `[API] ← SSE POST ${streamUrl} done (${full.length} chars)`,
+          );
+        }
+      }
       if (error) {
         reject(error);
         return;
@@ -73,7 +121,7 @@ export const sendConversationMessage = async (
       resolve(full);
     };
 
-    es.addEventListener('message', (event) => {
+    es.addEventListener("message", (event) => {
       if (!event.data) {
         return;
       }
@@ -85,24 +133,34 @@ export const sendConversationMessage = async (
       }
       onEvent(payload);
 
-      if (payload.type === 'content' && typeof payload.content === 'string') {
+      if (payload.type === "content" && typeof payload.content === "string") {
         full += payload.content;
         onDelta(payload.content);
         return;
       }
 
-      if (payload.type === 'done') {
+      if (payload.type === "done") {
+        if (typeof payload.content === "string" && payload.content.length > 0) {
+          full = payload.content;
+        }
         finalize();
         return;
       }
 
-      if (payload.type === 'error') {
-        finalize(new Error(payload.message || 'SSE stream error.'));
+      if (payload.type === "error") {
+        const errMsg =
+          typeof payload.message === "string"
+            ? payload.message
+            : "SSE stream error.";
+        finalize(new Error(errMsg));
       }
     });
 
-    es.addEventListener('error', (event) => {
-      const reason = 'message' in event && event.message ? event.message : 'SSE connection failed.';
+    es.addEventListener("error", (event) => {
+      const reason =
+        "message" in event && event.message
+          ? event.message
+          : "SSE connection failed.";
       finalize(new Error(reason));
     });
   });
@@ -114,9 +172,17 @@ export const completeAssistantReply = async (
   client: ApiClient,
   conversationId: string,
 ): Promise<ChatResponse> => {
-  const payload = await client.post<unknown>(apiPaths.conversations.assistant(conversationId), {}, 'Retry failed');
-  if (!payload || typeof payload !== 'object' || typeof (payload as ChatResponse).reply !== 'string') {
-    throw new Error('Invalid chat response from server.');
+  const payload = await client.post<unknown>(
+    apiPaths.conversations.assistant(conversationId),
+    {},
+    "Retry failed",
+  );
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    typeof (payload as ChatResponse).reply !== "string"
+  ) {
+    throw new Error("Invalid chat response from server.");
   }
   return payload as ChatResponse;
 };

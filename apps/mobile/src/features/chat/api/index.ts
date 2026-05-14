@@ -19,7 +19,17 @@ export {
   conversationsListQueryOptions,
 } from '@/src/features/chat/api/queries';
 
-export type { SendConversationMessageOptions, SsePayload } from '@/src/features/chat/api/conversation-stream';
+export type {
+  SendConversationMessageOptions,
+  SseContentEvent,
+  SseDoneEvent,
+  SseErrorEvent,
+  SsePayload,
+  SseReflectionEvent,
+  SseThinkingEvent,
+  SseToolCompletedEvent,
+  SseToolRunningEvent,
+} from '@/src/features/chat/api/conversation-stream';
 export { completeAssistantReply, sendConversationMessage } from '@/src/features/chat/api/conversation-stream';
 
 export type { UploadPdfFile, UploadPdfResponse } from '@/src/features/chat/api/conversation-upload';
