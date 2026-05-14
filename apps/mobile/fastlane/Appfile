@@ -1,0 +1,8 @@
+# Optional overrides for release lanes (TestFlight / Play Console).
+# Prefer CI secrets + env vars over committing identifiers here.
+
+# apple_id("you@example.com")
+# team_id("XXXXXXXXXX")
+
+# json_key_file("play-store-credentials.json")
+# package_name("com.expenseai.app")

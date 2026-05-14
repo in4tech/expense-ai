@@ -1,0 +1,105 @@
+# Paths are relative to apps/mobile (parent of fastlane/).
+#
+# Default iOS workspace/scheme match Expo prebuild for app.json name "AI Assistant".
+# Override if you change the display name: IOS_WORKSPACE / IOS_SCHEME.
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Install CocoaPods dependencies"
+  lane :pods do
+    cocoapods(
+      podfile: "./ios/Podfile",
+      try_repo_update_on_error: true
+    )
+  end
+
+  desc "Compile for iOS Simulator (CI smoke build, no archive)"
+  lane :build_sim do
+    pods
+    workspace = ENV["IOS_WORKSPACE"].to_s.strip
+    workspace = "ios/AIAssistant.xcworkspace" if workspace.empty?
+    scheme = ENV["IOS_SCHEME"].to_s.strip
+    scheme = "AIAssistant" if scheme.empty?
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Debug",
+      sdk: "iphonesimulator",
+      destination: "generic/platform=iOS Simulator",
+      skip_package_ipa: true,
+      skip_archive: true,
+      xcargs: "CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO"
+    )
+  end
+
+  desc "Build release IPA and upload to TestFlight (requires App Store Connect API key + signing)"
+  lane :beta do
+    setup_ci(force: true) if ENV["CI"]
+
+    key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_API_ISSUER_ID"]
+    key_content = ENV["APP_STORE_CONNECT_API_KEY_CONTENT"]
+
+    UI.user_error!("Missing APP_STORE_CONNECT_API_KEY_ID") if key_id.to_s.empty?
+    UI.user_error!("Missing APP_STORE_CONNECT_API_ISSUER_ID") if issuer_id.to_s.empty?
+    UI.user_error!("Missing APP_STORE_CONNECT_API_KEY_CONTENT (p8 body, base64 or raw)") if key_content.to_s.empty?
+
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_content,
+      is_key_content_base64: ENV["APP_STORE_CONNECT_API_KEY_IS_BASE64"] == "1"
+    )
+
+    pods
+    workspace = ENV["IOS_WORKSPACE"].to_s.strip
+    workspace = "ios/AIAssistant.xcworkspace" if workspace.empty?
+    scheme = ENV["IOS_SCHEME"].to_s.strip
+    scheme = "AIAssistant" if scheme.empty?
+    build_app(
+      workspace: workspace,
+      scheme: scheme,
+      configuration: "Release",
+      export_method: "app-store",
+      api_key: api_key,
+      silent: false
+    )
+    upload_to_testflight(api_key: api_key, skip_waiting_for_build_processing: true)
+  end
+end
+
+platform :android do
+  desc "Assemble debug APK (no Play upload)"
+  lane :assemble_debug do
+    gradle(task: "assembleDebug", project_dir: "android")
+  end
+
+  desc "Build AAB and upload to Play internal track (requires supply json + signing)"
+  lane :internal do
+    json_path = nil
+    begin
+      json_key = ENV["GOOGLE_PLAY_JSON_KEY_DATA"]
+      UI.user_error!("Missing GOOGLE_PLAY_JSON_KEY_DATA (service account JSON string)") if json_key.to_s.empty?
+
+      json_path = File.join(Dir.tmpdir, "expense-ai-play-store-#{Process.pid}-#{Time.now.to_i}.json")
+      File.write(json_path, json_key)
+      File.chmod(0o600, json_path)
+
+      gradle(task: "bundleRelease", project_dir: "android")
+
+      aab =
+        lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH] ||
+        Dir.glob(File.expand_path("../android/app/build/outputs/bundle/release/*.aab", __dir__)).first
+      UI.user_error!("No release AAB found under android/app/build/outputs/bundle/release") if aab.nil? || !File.file?(aab)
+
+      upload_to_play_store(
+        json_key: json_path,
+        track: "internal",
+        aab: aab
+      )
+    ensure
+      File.unlink(json_path) if json_path && File.exist?(json_path)
+    end
+  end
+end

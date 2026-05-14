@@ -1,0 +1,50 @@
+name: Mobile release (Android APK)
+
+# Manual: Actions → Mobile release → Run workflow. Download the APK from the run's Artifacts.
+# Debug APK — no repository secrets required.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses || true
+
+      - name: Expo prebuild (Android)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Assemble debug APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-debug-apk
+          path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
