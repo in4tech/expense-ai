@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     OPENAI_API_KEY: str
     TAVILY_API_KEY: str
+    COHERE_API_KEY: str | None = None
 
 
 @lru_cache(maxsize=1)

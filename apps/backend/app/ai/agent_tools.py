@@ -1,67 +1,40 @@
 
-
-
-from app.services.embedding_service import create_embedding
-from app.services.document_service import keyword_search_chunks, search_document_chunks
-from app.services.chat_service import get_messages
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.web_search_service import search_web
+from app.services.compression_service import compress_context, unified_retrieval
 
-async def hybrid_search_documents(
-    db,
-    query,
-    conversation_id
-):
-    embbeding = await create_embedding(query)
-
-    vector_results = await search_document_chunks(
-        db=db,
-        embedding=embbeding,
-        conversation_id=conversation_id,
-        limit=5
-    )
-
-    keyboard_results = await keyword_search_chunks(
-        db=db,
-        query=query,
-        conversation_id=conversation_id,
-        limit=5
-    )
-
-    merged = {}
-    for chunk in vector_results:
-        merged[chunk.id] = chunk
-
-    for row in keyboard_results:
-        chunk = row[0]
-
-        merged[chunk.id] = chunk
-
-    final_chunks = list(merged.values())
-
-    return final_chunks[:8]
-
-async def get_recent_messages_tool(
-    db,
-    conversation_id,
-    limit=10
-):
-    messages = await get_messages(
-        db=db,
-        conversation_id=conversation_id,
-        limit=limit
-    )
-
-    result = ""
-
-    for msg in messages:
-        result += (
-            f"{msg.role}: "
-            f"{msg.content}:\n"
-        )
-        
-    return result
 
 async def search_web_tool(query):
     result = await search_web(query)
 
     return result
+
+
+async def search_knowledge_base_tool(
+    db: AsyncSession,
+    query,
+    user_id,
+    conversation_id
+):
+    retrieved_context = await unified_retrieval(
+        db=db,
+        query=query,
+        user_id=user_id,
+        conversation_id=conversation_id,
+    )
+
+    compressed_context = await compress_context(
+        query=query,
+        retrieved_context=retrieved_context
+    )
+
+    return compressed_context
+
+
+TOOLS_MAP = {
+    "search_knowledge_base":
+        search_knowledge_base_tool,
+
+    "search_web":
+        search_web_tool
+}

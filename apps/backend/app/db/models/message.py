@@ -1,4 +1,5 @@
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import func
 
 from pgvector.sqlalchemy import Vector
@@ -18,5 +19,6 @@ class Message(Base):
     meta = Column("metadata", JSON, nullable=True)
 
     embedding = Column(Vector(1536), nullable=True)
+    search_vector = Column(TSVECTOR)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -1,8 +1,9 @@
 from openai import AsyncOpenAI
 from datetime import datetime, timezone
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import func
 
 from app.db.models.conversation import Conversation
 from app.db.models.document import DocumentChunk
@@ -10,18 +11,18 @@ from app.db.models.message import Message
 
 _DEFAULT_TITLES = frozenset({"New Chat", "New conversation"})
 
-def _format_conversation_summary(messages: list[Message]) -> str:
+def format_conversation_summary(messages: list[Message]) -> str:
     return "\n".join(f"{m.role}: {m.content}" for m in messages)
 
 
-async def _rebuild_conversation_summary(db: AsyncSession, conversation_id: int) -> None:
+async def rebuild_conversation_summary(db: AsyncSession, conversation_id: int) -> None:
     result = await db.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.asc(), Message.id.asc())
     )
     rows = list(result.scalars().all())
-    text = _format_conversation_summary(rows)
+    text = format_conversation_summary(rows)
     conversation = await db.get(Conversation, conversation_id)
     if conversation:
         conversation.summary = text
@@ -99,7 +100,7 @@ async def create_message(
                 conversation.title = stripped[:40]
 
     await db.flush()
-    await _rebuild_conversation_summary(db, conversation_id)
+    await rebuild_conversation_summary(db, conversation_id)
 
     await db.commit()
     await db.refresh(message)
@@ -111,7 +112,6 @@ async def search_similar_messages(
     db: AsyncSession,
     conversation_id: int,
     embedding,
-    *,
     limit: int = 5,
 ):
     result = await db.execute(
@@ -119,6 +119,22 @@ async def search_similar_messages(
         .where(Message.conversation_id == conversation_id)
         .where(Message.embedding.is_not(None))
         .order_by(Message.embedding.cosine_distance(embedding))
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+async def keyboard_search_messages(
+    db: AsyncSession,
+    conversation_id: int,
+    query,
+    limit: int = 5,
+):
+    tsq = func.plainto_tsquery(query)
+    result = await db.execute(
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .where(Message.search_vector.op("@@")(tsq))
+        .order_by(desc(func.ts_rank(Message.search_vector, tsq)))
         .limit(limit)
     )
     return result.scalars().all()

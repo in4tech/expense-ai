@@ -1,6 +1,6 @@
 from tavily import TavilyClient
 
-from app.config import settings
+from app.core.config import settings
 
 
 async def search_web(query):

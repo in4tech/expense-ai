@@ -11,12 +11,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 from app.services import chat_service, embedding_service, document_service
-from app.services.memory_service import create_memory, extract_memory, search_memories
-from app.config import settings
+from app.services.memory_service import create_memory, extract_memory
+from app.core.config import settings
 
-from app.ai.tools import TOOLS
-from app.ai.agent_tools import get_recent_messages_tool, hybrid_search_documents, search_web_tool
-from app.db.models import memory
+from app.services.streaming_agent_service import streaming_agent
 
 router = APIRouter()
 MAX_INTERATION = 5
@@ -156,152 +154,6 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
 
     return {"reply": ai_reply}
 
-# OLD: v1
-# @router.post("/{conversation_id}/chat-stream")
-# async def chat_stream(conversation_id: int, body: SendMessageBody, db: DbSession):
-    conversation = await chat_service.get_conversation(db, conversation_id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-
-    api_key = settings.OPENAI_API_KEY
-    if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
-
-    # Create embedding vectors
-    user_embedding = await embedding_service.create_embedding(body.message)
-    
-    # Create messages database
-    await chat_service.create_message(
-        db,
-        conversation_id=conversation_id,
-        role="user",
-        content=body.message,
-        embedding=user_embedding
-    )
-    await db.refresh(conversation)
-
-    # Load recent messages
-    messages = await chat_service.get_messages(
-        db,
-        conversation_id=conversation_id,
-        limit=20
-    )
-
-    # Revevant document memories
-    vector_results = await document_service.search_document_chunks(
-        db=db,
-        embedding=user_embedding,
-        conversation_id=conversation_id
-    )
-
-    # Revevant vector/sematic memories
-    keyboard_results = await document_service.keyboard_search_documents(
-        db=db,
-        query=body.message,
-        conversation_id=conversation_id
-    )
-
-    combined_chunks = {}
-    for chunk in vector_results:
-        combined_chunks[chunk.id] = chunk
-
-    for row in keyboard_results:
-        chunk = row[0]
-        combined_chunks[chunk.id] = chunk
-
-    final_chunks = list(combined_chunks.values())[:5]
-    
-    document_context = ""
-    for chunk in final_chunks:
-        document_context += f"""
-        [Page {chunk.page}]
-
-        {chunk.content}
-
-        """
-
-    # Relevant text memories
-    relevant_memories = await chat_service.search_similar_messages(
-        db,
-        embedding=user_embedding,
-        conversation_id=conversation_id
-    )
-    
-    memory_text = ""
-    for memory in relevant_memories:
-        memory_text += (
-            f"{memory.role}: "
-            f"{memory.content}\n"
-        )
-
-    transcript = conversation.summary or ""
-    memories = memory_text or ""
-    system_prompt = f"""
-    You are a friendly AI Assistant.
-    
-    Conversation summary:
-    {transcript}
-            
-    Relevant Memories:
-    {memories}
-
-    When answering questions:
-    - cite page number
-    - format:
-    (Source: Page X)
-
-    Relevant Documents:
-    {document_context}
-    """
-        
-    llm_messages = [
-        {
-            "role": "system",
-            "content": system_prompt,
-        },
-    ]
-
-    for msg in messages:
-        llm_messages.append({
-            "role": msg.role,
-            "content": msg.content
-        })
-
-    # Generate function - Streaming Response
-    async def generate():
-        full_response = ""
-
-        client = AsyncOpenAI(api_key=api_key)
-        stream = await client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=llm_messages,
-            stream=True,
-        )
-
-        async for chunk in stream:
-            if not chunk.choices:
-                continue
-            content = chunk.choices[0].delta.content
-            if content:
-                full_response += content
-                yield content
-
-        ai_embedding = await embedding_service.create_embedding(full_response)
-
-        await chat_service.create_message(
-            db=db,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=full_response,
-            embedding=ai_embedding,
-        )
- 
-    return StreamingResponse(
-        generate(),
-        media_type="text/plain"
-    )
-
-# NEW: v2
 @router.post("/chat-stream")
 async def chat_stream(request: ChatRequest, db: DbSession):
     api_key = settings.OPENAI_API_KEY
@@ -311,7 +163,6 @@ async def chat_stream(request: ChatRequest, db: DbSession):
     user_id, conversation_id, message = request
 
     user_embedding = await embedding_service.create_embedding(message)
-
     await chat_service.create_message(
         db=db,
         conversation_id=conversation_id,
@@ -321,10 +172,8 @@ async def chat_stream(request: ChatRequest, db: DbSession):
     )
 
     memory_data = await extract_memory(message)
-
     if(memory_data.get("should_save")):
         memory_content = memory_data["memory"]
-
         memory_embedding = embedding_service.create_embedding(memory_content)
 
         await create_memory(
@@ -335,150 +184,22 @@ async def chat_stream(request: ChatRequest, db: DbSession):
             memory_type=memory_data["memory_type"]
         )
 
-    relevant_memories = await search_memories(
-        db=db,
-        user_id=user_id,
-        embedding=user_embedding,
-        limit=5
-    )
-
-    memory_context = ""
-    for memory in relevant_memories:
-        memory_context += f"- {memory.content}\n"
-
-    history = await chat_service.get_messages(
-        db=db,
-        conversation_id=conversation_id,
-        limit=20
-    )
-
-    message_for_agent = [
-        {
-            "role": "system",
-            "content": f""" 
-            You are a friendly AI Assistant.
-
-            Known user memories:
-
-            {memory_context}
-
-            You can:
-            - Search documents
-            - Read conversation history
-            - Use tools when needed
-            - Call tools multiple times
-
-            Rules:
-            - self-decide when to call tools
-            - can call tools many times
-            - only return final answer when enough information
-            - if missing information, use tools
-            - always think step by step
-            """
-        }
-    ]
-
-    for msg in history:
-        message_for_agent.append({
-            "role": msg.role,
-            "content": msg.content
-        })
-
     async def generate():
         full_response = ""
 
-        for iteration in range(MAX_INTERATION):
-            yield sse_event({
-                "type": "thinking",
-                "iteration": iteration + 1
-            })
-
-            client = AsyncOpenAI(api_key=api_key)
-            response = await client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=message_for_agent,
-                tools=TOOLS
-            )
-
-            assistant_message = response.choices[0].message
-
-            message_for_agent.append({
-                "role": "assistant",
-                "content": assistant_message.content or "",
-                "tool_calls": assistant_message.tool_calls
-            })
-
-            if not assistant_message.tool_calls:
-                yield sse_event({
-                    "type": "thinking",
-                    "status": "final_answer"
-                })
-
-                break
-
-            for tool_call in assistant_message.tool_calls:
-                tool_name = tool_call.function.name
-
-                arguments = json.loads(tool_call.function.arguments)
-
-                yield sse_event({
-                    "type": "tool",
-                    "tool": tool_name,
-                    "status": "running"
-                })
-
-                if(tool_name == "search_documents"):
-                    result = await hybrid_search_documents(
-                        db=db,
-                        query=arguments["query"],
-                        conversation_id=conversation_id
-                    )
-
-                elif(tool_name == "get_recent_messages"):
-                    result = await get_recent_messages_tool(
-                        db=db,
-                        conversation_id=conversation_id,
-                        limit=arguments.get("limit", 10)
-                    )
-
-                elif(tool_name == "search_web"):
-                    result = await search_web_tool(
-                        query=arguments["query"]
-                    )
-
-                else:
-                    result = "Unknown tool"
-
-                yield sse_event({
-                    "type": "tool",
-                    "tool": tool_name,
-                    "status": "completed"
-                })
-
-                message_for_agent.append({
-                    "tool_call_id": tool_call.id,
-                    "role": "tool",
-                    "name": tool_name,
-                    "content": result
-                })
-
-        final_stream = await client.chat.completions.create(
-            model="gpt-4.1-mini",
-            messages=message_for_agent,
-            stream=True
-        )
-
-        async for chunk in final_stream:
-            content = chunk.choices[0].delta.content
-
-            if content:
-                full_response += content
-
-                yield sse_event({
-                    "type": "content",
-                    "content": content
-                })
+        async for chunk in streaming_agent(
+            db=db,
+            user_message=message,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            send_event=sse_event
+        ):
+            if isinstance(chunk, str):
+                full_response += chunk
+            else:
+                yield chunk
         
+        print(f"Response: {full_response}")
         ai_embedding = await embedding_service.create_embedding(full_response)
 
         await chat_service.create_message(

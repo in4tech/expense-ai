@@ -3,7 +3,7 @@ from pypdf import PdfReader
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.core.config import settings
 from app.db.models.document import DocumentChunk
 
 def extract_pdf_text(file):
