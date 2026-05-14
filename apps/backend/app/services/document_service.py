@@ -1,9 +1,8 @@
-from openai import AsyncOpenAI
 from pypdf import PdfReader
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.db.session import client, CHAT_MODELS
 from app.db.models.document import DocumentChunk
 
 def extract_pdf_text(file):
@@ -99,12 +98,22 @@ async def keyword_search_chunks(
     )
     return result.scalars().all()
 
+async def hybrid_search_document_chunks(
+    db: AsyncSession,
+    conversation_id: int,
+    embedding,
+    query,
+    limit=5
+):
+    vector_chunks = await search_document_chunks(db, conversation_id, embedding, limit)
+    keyword_chunks = await keyword_search_chunks(db, query, conversation_id, limit)
+    return vector_chunks + keyword_chunks
+
 async def summarize_pdf(text):
     truncated_text = text[:12000]
 
-    client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     response = await client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=CHAT_MODELS,
         messages=[
             {
                 "role": "system",

@@ -1,6 +1,7 @@
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import func
 from app.db.base import Base
 
@@ -10,9 +11,14 @@ class Memory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
     content = Column(Text)
     embedding = Column(Vector(1536))
+    search_vector = Column(TSVECTOR)
 
     memory_type = Column(String)
     created_at = Column(

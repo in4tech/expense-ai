@@ -28,23 +28,6 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
     await conn.execute(
         text(
             """
-            DO $$
-            BEGIN
-              IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'messages'
-                  AND column_name = 'create_at'
-              ) THEN
-                ALTER TABLE messages RENAME COLUMN create_at TO created_at;
-              END IF;
-            END $$;
-            """
-        )
-    )
-    await conn.execute(
-        text(
-            """
             ALTER TABLE messages
             ADD COLUMN IF NOT EXISTS embedding vector(1536);
             """
@@ -53,22 +36,8 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
     await conn.execute(
         text(
             """
-            DO $$
-            BEGIN
-              IF EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'messages'
-                  AND column_name = 'meta'
-              ) AND NOT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public'
-                  AND table_name = 'messages'
-                  AND column_name = 'metadata'
-              ) THEN
-                ALTER TABLE messages RENAME COLUMN meta TO metadata;
-              END IF;
-            END $$;
+            ALTER TABLE messages
+            ADD COLUMN IF NOT EXISTS metadata JSONB;
             """
         )
     )
@@ -76,7 +45,55 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
         text(
             """
             ALTER TABLE messages
-            ADD COLUMN IF NOT EXISTS metadata JSONB;
+            ADD COLUMN IF NOT EXISTS search_vector tsvector;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            UPDATE messages
+            SET search_vector = to_tsvector('simple', COALESCE(content, ''))
+            WHERE search_vector IS NULL;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_messages_search_vector
+            ON messages
+            USING GIN (search_vector);
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE OR REPLACE FUNCTION messages_set_search_vector()
+            RETURNS TRIGGER AS $$
+            BEGIN
+              NEW.search_vector := to_tsvector('simple', COALESCE(NEW.content, ''));
+              RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            DROP TRIGGER IF EXISTS messages_search_vector_tr ON messages;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE TRIGGER messages_search_vector_tr
+            BEFORE INSERT OR UPDATE OF content ON messages
+            FOR EACH ROW
+            EXECUTE FUNCTION messages_set_search_vector();
             """
         )
     )
@@ -111,6 +128,71 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
             CREATE INDEX IF NOT EXISTS ix_document_chunks_search_vector
             ON document_chunks
             USING GIN (search_vector);
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            ALTER TABLE memories
+            ADD COLUMN IF NOT EXISTS search_vector tsvector;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            UPDATE memories
+            SET search_vector = to_tsvector('simple', COALESCE(content, ''))
+            WHERE search_vector IS NULL;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE INDEX IF NOT EXISTS ix_memories_search_vector
+            ON memories
+            USING GIN (search_vector);
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE OR REPLACE FUNCTION memories_set_search_vector()
+            RETURNS TRIGGER AS $$
+            BEGIN
+              NEW.search_vector := to_tsvector('simple', COALESCE(NEW.content, ''));
+              RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            DROP TRIGGER IF EXISTS memories_search_vector_tr ON memories;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            CREATE TRIGGER memories_search_vector_tr
+            BEFORE INSERT OR UPDATE OF content ON memories
+            FOR EACH ROW
+            EXECUTE FUNCTION memories_set_search_vector();
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            INSERT INTO users (email, display_name, is_active)
+            VALUES ('dev@local.test', 'Dev User', true)
+            ON CONFLICT (email) DO NOTHING;
             """
         )
     )

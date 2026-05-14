@@ -8,7 +8,9 @@ const conversationsRoot = '/conversations';
 export const apiPaths = {
   conversations: {
     root: conversationsRoot,
-    chatStream: `${conversationsRoot}/chat-stream`,
+    /** POST SSE — body `{ message }` only; id is in the path. */
+    chatStream: (conversationId: string) =>
+      `${conversationsRoot}/${encodeURIComponent(conversationId)}/chat-stream`,
     byId: (conversationId: string) => `${conversationsRoot}/${encodeURIComponent(conversationId)}`,
     messages: (conversationId: string, searchQuery?: string) => {
       const base = `${conversationsRoot}/${encodeURIComponent(conversationId)}/messages`;

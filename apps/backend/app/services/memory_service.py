@@ -1,16 +1,11 @@
 import json
 
-from openai import OpenAI
-from sqlalchemy import select
-
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.config import settings
+from sqlalchemy.sql import func
+from sqlalchemy import desc, select
 from app.db.models.memory import Memory
+from sqlalchemy.ext.asyncio import AsyncSession
 
-client = OpenAI(
-    api_key=settings.OPENAI_API_KEY
-)
-
+from app.db.session import client, CHAT_MODELS
 
 async def create_memory(
     db,
@@ -33,6 +28,17 @@ async def create_memory(
 
     return memory
 
+async def hybrid_search_memories(
+    db: AsyncSession,
+    user_id,
+    embedding,
+    query,
+    limit=5
+):
+    vector_memories = await search_memories(db, user_id, embedding, limit)
+    keyword_memories = await keyword_search_memories(db, query, user_id, limit)
+
+    return vector_memories + keyword_memories
 
 async def search_memories(
     db: AsyncSession,
@@ -49,22 +55,37 @@ async def search_memories(
 
     return result.scalars().all()
 
+async def keyword_search_memories(
+    db: AsyncSession,
+    query,
+    user_id,
+    limit=5,
+):
+    tsq = func.plainto_tsquery(query)
+    result = await db.execute(
+        select(Memory)
+        .where(Memory.user_id == user_id)
+        .where(Memory.search_vector.op("@@")(tsq))
+        .order_by(desc(func.ts_rank(Memory.search_vector, tsq)))
+        .limit(limit)
+    )
+    return result.scalars().all()
 
 async def extract_memory(message):
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model=CHAT_MODELS,
             response_format={
                 "type": "json_object"
             },
             messages=[
                 {
                     "role": "system",
-                    "content": f"""
+                    "content": """
                     Extract useful long-term memory
 
                     ONLY save if:
                     - preference
-                    - peronal profile
+                    - personal profile
                     - goals
                     - ongoing projects
                     - important facts

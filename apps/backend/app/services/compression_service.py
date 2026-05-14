@@ -1,18 +1,14 @@
 
 
 import json
-from openai import OpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.db.session import client, CHAT_MODELS
 from app.services.embedding_service import create_embedding
-from app.services.chat_service import keyboard_search_messages, search_similar_messages
-from app.services.memory_service import search_memories
-from apps.backend.app.services.document_service import keyword_search_chunks, search_document_chunks
-from apps.backend.app.services.rerank_service import rerank_pipeline
-
-
-client = OpenAI(settings.OPENAI_API_KEY)
+from app.services.chat_service import hybrid_search_messages
+from app.services.memory_service import hybrid_search_memories
+from app.services.document_service import hybrid_search_document_chunks
+from app.services.rerank_service import rerank_pipeline
 
 async def compress_context(
     query,
@@ -29,7 +25,7 @@ async def compress_context(
         """
 
     response = await client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=CHAT_MODELS,
         response_format={
             "type": "json_object"
         },
@@ -69,7 +65,6 @@ async def compress_context(
     )
 
     result = json.loads(response.choices[0].message.content)
-
     return result["compressed_text"]
 
 
@@ -85,46 +80,30 @@ async def unified_retrieval(
     # ========================================
     # MESSAGES
     # ========================================
-
-    vector_messages = await search_similar_messages(
+    vector_messages = await hybrid_search_messages(
         db=db,
         conversation_id=conversation_id,
         embedding=embedding
     )
 
-    keyboard_messages = await keyboard_search_messages(
-        db=db,
-        conversation_id=conversation_id,
-        query=query
-    )
-
     # ========================================
     # MEMORIES
     # ========================================
-
-    vector_memories = await search_memories(
+    vector_memories = await hybrid_search_memories(
         db=db,
         user_id=user_id,
         embedding=embedding,
-        limit=5
+        query=query,
     )
 
     # ========================================
     # DOCUMENTS
     # ========================================
-
-    vector_documents = await search_document_chunks(
+    vector_documents = await hybrid_search_document_chunks(
         db=db,
+        conversation_id=conversation_id,
         embedding=embedding,
-        conversation_id=conversation_id,
-        limit=5
-    )
-
-    keyboard_documents = await keyword_search_chunks(
-        db=db,
         query=query,
-        conversation_id=conversation_id,
-        limit=5
     )
 
     # ========================================
@@ -132,35 +111,27 @@ async def unified_retrieval(
     # ========================================
     retrieved_context = []
 
+    # MESSAGES
     [retrieved_context.append({
         "type": "message",
         "content": msg.content
     }) for msg in vector_messages]
 
-    [retrieved_context.append({
-        "type": "message",
-        "content": row.content
-    }) for row in keyboard_messages]
-
+    # MEMORIES
     [retrieved_context.append({
         "type": "message",
         "content": msg.content
     }) for msg in vector_memories]
 
+    # DOCUMENTS
     [retrieved_context.append({
         "type": "message",
         "content": msg.content
     }) for msg in vector_documents]
 
-    [retrieved_context.append({
-        "type": "message",
-        "content": row.content
-    }) for row in keyboard_documents]
-
     # ========================================
     # DEDUPLICATE
     # ========================================
-
     seen = set()
     unique_context = []
 
@@ -170,7 +141,9 @@ async def unified_retrieval(
 
             unique_context.append(item)
 
-    print(unique_context)
+    # ========================================
+    # RERANK CONTEXT
+    # ========================================
     reranked = await rerank_pipeline(
         query=query,
         chunks=unique_context,

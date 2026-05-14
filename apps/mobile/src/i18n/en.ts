@@ -5,7 +5,8 @@ export const en = {
   },
   chat: {
     title: 'Chat AI',
-    subtitle: 'Talk with your finance assistant. API call to POST /conversations/chat-stream.',
+    subtitle:
+      'Talk with your finance assistant. Streams from POST /conversations/{id}/chat-stream (SSE).',
     emptyTitle: 'Start a conversation',
     emptyBody: 'Use quick prompts below or type your question in the message box.',
     typingHint: 'Tap prompt or type below to start chatting...',

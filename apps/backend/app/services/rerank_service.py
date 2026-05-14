@@ -2,15 +2,16 @@ import cohere
 
 from app.core.config import settings
 
-_co_client: cohere.Client | None = None
+_co_client: cohere.AsyncClient | None = None
 
-def _get_cohere_client() -> cohere.Client | None:
+
+def _get_cohere_client() -> cohere.AsyncClient | None:
     global _co_client
     key = (settings.COHERE_API_KEY or "").strip()
     if not key:
         return None
     if _co_client is None:
-        _co_client = cohere.Client(key)
+        _co_client = cohere.AsyncClient(api_key=key)
     return _co_client
 
 

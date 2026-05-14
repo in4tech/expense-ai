@@ -5,7 +5,8 @@ export const vn = {
   },
   chat: {
     title: 'Chat AI',
-    subtitle: 'Trò chuyện với trợ lý tài chính. API gọi tới POST /conversations/chat-stream.',
+    subtitle:
+      'Trò chuyện với trợ lý tài chính. SSE qua POST /conversations/{id}/chat-stream.',
     emptyTitle: 'Bắt đầu cuộc trò chuyện',
     emptyBody: 'Bạn có thể dùng câu hỏi nhanh bên dưới hoặc nhập câu hỏi ở ô chat.',
     typingHint: 'Chọn gợi ý hoặc nhập bên dưới để bắt đầu...',

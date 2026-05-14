@@ -1,3 +1,4 @@
+import { DEFAULT_DEV_USER_ID } from '@/src/config/default-user';
 import { apiPaths, type ApiClient } from '@/src/lib/api';
 import type { ChatResponse } from '@/src/features/chat/types';
 import EventSource from 'react-native-sse';
@@ -27,7 +28,8 @@ export type SendConversationMessageOptions = {
 };
 
 /**
- * POST `/conversations/chat-stream` — response is streamed `text/event-stream`.
+ * POST `/conversations/{conversationId}/chat-stream` — response is `text/event-stream` (SSE).
+ * Each `data:` line is JSON; assistant tokens use `{ "type": "content", "content": "..." }`, end is `{ "type": "done" }`.
  */
 export const sendConversationMessage = async (
   client: ApiClient,
@@ -43,7 +45,7 @@ export const sendConversationMessage = async (
   const onEvent = options?.onEvent ?? (() => {});
 
   const reply = await new Promise<string>((resolve, reject) => {
-    const streamUrl = client.buildUrl(apiPaths.conversations.chatStream);
+    const streamUrl = client.buildUrl(apiPaths.conversations.chatStream(conversationId));
     let full = '';
     let settled = false;
 
@@ -53,10 +55,7 @@ export const sendConversationMessage = async (
         Accept: 'text/event-stream',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        conversation_id: numericConversationId,
-        message,
-      }),
+      body: JSON.stringify({ message, user_id: DEFAULT_DEV_USER_ID }),
       pollingInterval: 0,
     });
 

@@ -1,4 +1,3 @@
-from openai import AsyncOpenAI
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, desc, select
@@ -139,6 +138,16 @@ async def keyboard_search_messages(
     )
     return result.scalars().all()
 
+async def hybrid_search_messages(
+    db: AsyncSession,
+    conversation_id: int,
+    embedding,
+    query,
+    limit=5
+):
+    vector_messages = await search_similar_messages(db, conversation_id, embedding, limit)
+    keyword_messages = await keyboard_search_messages(db, conversation_id, query, limit)
+    return vector_messages + keyword_messages
 
 async def delete_conversation(
     db: AsyncSession,

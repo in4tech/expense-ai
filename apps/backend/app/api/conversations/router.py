@@ -5,16 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 
-from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, client, CHAT_MODELS
 from app.services import chat_service, embedding_service, document_service
-from app.services.memory_service import create_memory, extract_memory
+from app.services.memory_service import create_memory, extract_memory, hybrid_search_memories
 from app.core.config import settings
 
-from app.services.streaming_agent_service import streaming_agent
+from app.ai.tools import TOOLS
+from app.ai.agent_tools import TOOLS_MAP
 
 router = APIRouter()
 MAX_INTERATION = 5
@@ -36,13 +36,9 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 class CreateConversationBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
 
-class SendMessageBody(BaseModel):
+class ChatStreamBody(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
-
-class ChatRequest(BaseModel):
-    user_id: int
-    conversation_id: int
-    message: str = Field(..., min_length=1, max_length=10000)
+    user_id: int = Field(default=1, ge=1)
 
 
 def _conversation_summary_row(conversation) -> dict:
@@ -70,22 +66,13 @@ async def list_conversations(db: DbSession):
     rows = await chat_service.list_conversations(db)
     return {"conversations": [_conversation_summary_row(c) for c in rows]}
 
-
 @router.post("")
-async def create_conversation_route(
-    db: DbSession,
-    body: CreateConversationBody = CreateConversationBody(),
-):
+async def create_conversation_route(db: DbSession, body: CreateConversationBody = CreateConversationBody()):
     conversation = await chat_service.create_conversation(db, title=body.title)
     return _conversation_summary_row(conversation)
 
-
 @router.get("/{conversation_id}/messages")
-async def get_conversation_messages(
-    conversation_id: int,
-    db: DbSession,
-    limit: int = Query(default=20, ge=1, le=500),
-):
+async def get_conversation_messages(conversation_id: int, db: DbSession, limit: int = Query(default=20, ge=1, le=500)):
     conversation = await chat_service.get_conversation(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -94,10 +81,7 @@ async def get_conversation_messages(
     return {"messages": [_message_row(m) for m in messages]}
 
 @router.delete("/{conversation_id}")
-async def delete_conversation(
-    conversation_id: int,
-    db: DbSession
-):
+async def delete_conversation(conversation_id: int, db: DbSession):
     conversation = await chat_service.get_conversation(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -138,9 +122,8 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
         },
     ]
 
-    client = AsyncOpenAI(api_key=api_key)
     response = await client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model=CHAT_MODELS,
         messages=llm_messages,
     )
 
@@ -154,27 +137,36 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
 
     return {"reply": ai_reply}
 
-@router.post("/chat-stream")
-async def chat_stream(request: ChatRequest, db: DbSession):
+@router.post("/{conversation_id}/chat-stream")
+async def chat_stream(
+    conversation_id: int,
+    body: ChatStreamBody,
+    db: DbSession,
+):
     api_key = settings.OPENAI_API_KEY
     if not api_key:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
 
-    user_id, conversation_id, message = request
+    conversation = await chat_service.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
-    user_embedding = await embedding_service.create_embedding(message)
+    user_id = body.user_id
+    user_text = body.message
+
+    user_embedding = await embedding_service.create_embedding(user_text)
     await chat_service.create_message(
         db=db,
         conversation_id=conversation_id,
         role="user",
-        content=message,
+        content=user_text,
         embedding=user_embedding
     )
 
-    memory_data = await extract_memory(message)
+    memory_data = await extract_memory(user_text)
     if(memory_data.get("should_save")):
         memory_content = memory_data["memory"]
-        memory_embedding = embedding_service.create_embedding(memory_content)
+        memory_embedding = await embedding_service.create_embedding(memory_content)
 
         await create_memory(
             db=db,
@@ -183,25 +175,136 @@ async def chat_stream(request: ChatRequest, db: DbSession):
             embedding=memory_embedding,
             memory_type=memory_data["memory_type"]
         )
+        
+    relevant_memories = await hybrid_search_memories(
+        db=db,
+        user_id=user_id,
+        embedding=user_embedding,
+        query=user_text,
+    )
+    memory_context = "\n".join([f"- {memory.content}" for memory in relevant_memories])
+    messages = [
+        {
+            "role": "system",
+            "content": f"""
+            You are an advanced AI assistant with access to external tools.
+
+            Known user memories:
+
+            {memory_context}
+            
+
+            Behavior rules:                
+            - Use tools for factual, realtime, memory, or document-related questions.
+            - Prefer knowledge-base retrieval before answering questions about uploaded files, memories, or previous conversations.
+            - Use web search for current events, news, or realtime internet information.
+            - Do not invent facts when relevant tools are available.
+            - If retrieved context is insufficient, say so clearly.
+            - Avoid unnecessary tool calls for simple conversational replies.
+
+            Response style:
+            - Be concise and accurate.
+            - Focus on useful answers.
+            """
+        },
+        {
+           "role": "user",
+            "content": user_text
+        }
+    ]
 
     async def generate():
-        full_response = ""
+        for iteration in range(MAX_INTERATION):
+            yield sse_event({
+                "type": "thinking",
+                "iteration": iteration + 1
+            })
+            
+            response = await client.chat.completions.create(
+                model=CHAT_MODELS,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+            )
 
-        async for chunk in streaming_agent(
-            db=db,
-            user_message=message,
-            user_id=user_id,
-            conversation_id=conversation_id,
-            send_event=sse_event
-        ):
-            if isinstance(chunk, str):
-                full_response += chunk
-            else:
-                yield chunk
+            message = response.choices[0].message
+            
+            # ====================================
+            # TOOL CALL
+            # ====================================
+            if message.tool_calls:
+                messages.append({
+                    "role": "assistant",
+                    "content": message.content,
+                    "tool_calls": message.tool_calls
+                })
+
+                for tool_call in message.tool_calls:
+                    function_name = tool_call.function.name
+
+                    args = json.loads(tool_call.function.arguments)
+
+                    yield sse_event({
+                        "type": "tool_running",
+                        "tool": function_name
+                    })
+
+                    # =============================
+                    # EXECUTE TOOL
+                    # =============================
+
+                    if(function_name == "search_knowledge_base"):
+                        result = await TOOLS_MAP[function_name](
+                            db=db,
+                            query=args['query'],
+                            user_id=user_id,
+                            conversation_id=conversation_id
+                        )
+
+                    elif(function_name == "search_web"):
+                        result = await TOOLS_MAP[function_name](
+                            query=args['query'],
+                        )
+
+                    else:
+                        result = "Unknown tool"
+
+                    yield sse_event({
+                        "type": "tool_completed",
+                        "tool": function_name
+                    })
+
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
+                        "content": str(result)
+                    })
+
+            continue
+            
+
+        # ====================================
+        # FINAL STREAMING
+        # ====================================
+        stream = await client.chat.completions.create(
+            model=CHAT_MODELS,
+            messages=messages,
+            stream=True
+        )
         
-        print(f"Response: {full_response}")
-        ai_embedding = await embedding_service.create_embedding(full_response)
+        full_response = ""
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content
 
+            if delta:
+                full_response += delta
+
+                yield sse_event({
+                    "type": "content",
+                    "content": delta
+                })
+            
+        ai_embedding = await embedding_service.create_embedding(full_response)
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
@@ -211,7 +314,8 @@ async def chat_stream(request: ChatRequest, db: DbSession):
         )
 
         yield sse_event({
-            "type": "done"
+            "type": "done",
+            "content": full_response
         })
 
     return StreamingResponse(
