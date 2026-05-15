@@ -111,20 +111,12 @@ async def reflection_pipeline(
     confidence = reflection["confidence"]
 
     if(needs_improvement and confidence < 0.8):
-        improved_anwswer = await improve_response(
-            user_query=user_query,
-            draft_answer=draft_answer,
-            reflection=reflection
-        )
-
         return {
-            "final_answer": improved_anwswer,
             "reflection": reflection,
             "improved": True
         }
 
     return {
-        "final_answer": draft_answer,
         "reflection": reflection,
         "improved": False
     }

@@ -13,9 +13,7 @@ from app.services import chat_service, embedding_service, document_service
 from app.services.memory_service import create_memory, extract_memory, hybrid_search_memories
 from app.core.config import settings
 
-from app.ai.tools import TOOLS
-from app.ai.agent_tools import TOOLS_MAP
-from app.ai.reflection_service import reflection_pipeline
+from app.agents.orchestrator.multi_agent_orchestrator import run_multi_agent
 
 router = APIRouter()
 MAX_INTERATION = 5
@@ -184,149 +182,27 @@ async def chat_stream(
         query=user_text,
     )
     memory_context = "\n".join([f"- {memory.content}" for memory in relevant_memories])
-    messages = [
-        {
-            "role": "system",
-            "content": f"""
-            You are an advanced AI assistant with access to external tools.
-
-            Known user memories:
-
-            {memory_context}
-            
-
-            Behavior rules:                
-            - Use tools for factual, realtime, memory, or document-related questions.
-            - Prefer knowledge-base retrieval before answering questions about uploaded files, memories, or previous conversations.
-            - Use web search for current events, news, or realtime internet information.
-            - Do not invent facts when relevant tools are available.
-            - If retrieved context is insufficient, say so clearly.
-            - Avoid unnecessary tool calls for simple conversational replies.
-
-            Response style:
-            - Be concise and accurate.
-            - Focus on useful answers.
-            """
-        },
-        {
-           "role": "user",
-            "content": user_text
-        }
-    ]
-
+    
     async def generate():
-        for iteration in range(MAX_INTERATION):
-            yield sse_event({
-                "type": "thinking",
-                "iteration": iteration + 1
-            })
-            
-            response = await client.chat.completions.create(
-                model=CHAT_MODELS,
-                messages=messages,
-                tools=TOOLS,
-                tool_choice="auto",
-            )
-
-            message = response.choices[0].message
-            
-            # ====================================
-            # TOOL CALL
-            # ====================================
-            if message.tool_calls:
-                messages.append({
-                    "role": "assistant",
-                    "content": message.content,
-                    "tool_calls": message.tool_calls
-                })
-
-                for tool_call in message.tool_calls:
-                    function_name = tool_call.function.name
-
-                    args = json.loads(tool_call.function.arguments)
-
-                    yield sse_event({
-                        "type": "tool_running",
-                        "tool": function_name
-                    })
-
-                    # =============================
-                    # EXECUTE TOOL
-                    # =============================
-
-                    if(function_name == "search_knowledge_base"):
-                        result = await TOOLS_MAP[function_name](
-                            db=db,
-                            query=args['query'],
-                            user_id=user_id,
-                            conversation_id=conversation_id
-                        )
-
-                    elif(function_name == "search_web"):
-                        result = await TOOLS_MAP[function_name](
-                            query=args['query'],
-                        )
-
-                    else:
-                        result = "Unknown tool"
-
-                    yield sse_event({
-                        "type": "tool_completed",
-                        "tool": function_name
-                    })
-
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": str(result)
-                    })
-
-            continue
-
-        # ====================================
-        # DRAFT ANSWER
-        # ====================================
-        draft_answer = message.content
-        yield sse_event({
-            "type": "reflection",
-            "status": "running"
-        })
-
-        reflection_result = await reflection_pipeline(
-            user_query=message,
-            draft_answer=draft_answer
-        )
-
-        final_answer = reflection_result["final_answer"]
-        messages.append({
-            "role": "system",
-            "content": final_answer
-        })
-        yield sse_event({
-            "type": "reflection",
-            "status": "completed",
-        })
-
-        # ====================================
-        # FINAL STREAMING
-        # ====================================
         final_response = ""
-        stream = await client.chat.completions.create(
-            model=CHAT_MODELS,
-            messages=messages,
-            stream=True
-        )
+        async for chunk in run_multi_agent(
+            db=db,
+            user_query=user_text,
+            memory_context=memory_context,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            send_event=sse_event
+        ):
+            if chunk.startswith("data: "):
+                try:
+                    payload = json.loads(chunk.removeprefix("data: ").strip())
+                except json.JSONDecodeError:
+                    payload = {}
+                piece = payload.get("content")
+                if piece:
+                    final_response += piece
 
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content
-
-            if delta:
-                final_response += delta
-                yield sse_event({
-                    "type": "content",
-                    "content": delta
-                })
-
+            yield chunk
 
         ai_embedding = await embedding_service.create_embedding(final_response)
         await chat_service.create_message(

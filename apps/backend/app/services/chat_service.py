@@ -89,17 +89,7 @@ async def create_message(
     )
     db.add(message)
 
-    conversation = await db.get(Conversation, conversation_id)
-    if conversation:
-        now = datetime.now(timezone.utc)
-        conversation.updated_at = now
-        if role == "user":
-            stripped = content.strip()
-            if stripped and (not conversation.title or conversation.title in _DEFAULT_TITLES):
-                conversation.title = stripped[:40]
-
     await db.flush()
-    await rebuild_conversation_summary(db, conversation_id)
 
     await db.commit()
     await db.refresh(message)
