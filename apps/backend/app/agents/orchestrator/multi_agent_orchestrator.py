@@ -3,6 +3,7 @@ from app.agents.planner.planner_agent import create_plan
 from app.agents.executor.executor_agent import execute_task
 from app.agents.reflection.reflection_service import reflection_pipeline
 from app.agents.synthesis import synthesis_agent
+from app.services.memory_service import extract_memory, save_memories
 
 
 def _normalize_tasks(plan: dict, user_query: str) -> list[dict]:
@@ -108,5 +109,33 @@ async def run_multi_agent(
         "type": "reflection",
         "status": "completed",
         "improved": reflection_result["improved"]
+    })
+
+    # =====================================================
+    # MEMORY EXTRACTION
+    # =====================================================
+    yield send_event({
+        "type": "memory_extraction"
+    })
+
+    memories = await extract_memory(
+        message=user_query,
+        assistant_response= draft_answer
+    )
+    
+    memories = memories.get("memories", [])
+
+    # =====================================================
+    # SAVE MEMORIES
+    # =====================================================
+    await save_memories(
+        db=db,
+        user_id=user_id,
+        memories=memories
+    )
+    
+    yield send_event({
+        "type": "memory_saved",
+        "count": len(memories)
     })
 

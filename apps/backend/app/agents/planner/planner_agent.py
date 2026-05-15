@@ -16,9 +16,6 @@ async def create_plan(
                 "content": f"""
                 You are a planning agent.
 
-                Known user memories:
-                {memory_context or "(none)"}
-
                 Break the user request into executable tasks. Always include at least one task.
 
                 Available tools:
@@ -40,7 +37,16 @@ async def create_plan(
             },
             {
                 "role": "user",
-                "content": user_query
+                "content": f"""
+                USER QUERY:
+
+                {user_query}
+
+                RELEVANT MEMORIES:
+
+                {memory_context}
+                
+                """
             }
         ]
     )

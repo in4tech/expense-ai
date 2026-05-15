@@ -1,27 +1,30 @@
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import func
+from sqlalchemy.sql.sqltypes import TIME_TIMEZONE
 from app.db.base import Base
 
 
 class Memory(Base):
     __tablename__ = "memories"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(BigInteger, primary_key=True, index=True)
 
     user_id = Column(
-        Integer,
+        BigInteger,
         ForeignKey("users.id"),
         nullable=False
     )
-    content = Column(Text)
     embedding = Column(Vector(1536))
     search_vector = Column(TSVECTOR)
+    importance_score = Column(Float, default=0.5)
 
-    memory_type = Column(String)
+    content = Column(Text, nullable=False)
+    memory_type = Column(Text, nullable=False)
+
     created_at = Column(
-        DateTime(timezone=True),
+        TIME_TIMEZONE,
         server_default=func.now()
     )

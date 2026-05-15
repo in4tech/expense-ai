@@ -119,9 +119,9 @@ async def unified_retrieval(
 
     # MEMORIES
     [retrieved_context.append({
-        "type": "message",
-        "content": msg.content
-    }) for msg in vector_memories]
+        "type": "memory",
+        "content": memory["content"],
+    }) for memory in vector_memories]
 
     # DOCUMENTS
     [retrieved_context.append({

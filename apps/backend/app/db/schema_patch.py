@@ -190,6 +190,23 @@ async def apply_schema_patches(conn: AsyncConnection) -> None:
     await conn.execute(
         text(
             """
+            ALTER TABLE memories
+            ADD COLUMN IF NOT EXISTS importance_score DOUBLE PRECISION;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
+            UPDATE memories
+            SET importance_score = 0.5
+            WHERE importance_score IS NULL;
+            """
+        )
+    )
+    await conn.execute(
+        text(
+            """
             INSERT INTO users (email, display_name, is_active)
             VALUES ('dev@local.test', 'Dev User', true)
             ON CONFLICT (email) DO NOTHING;

@@ -6,19 +6,20 @@ from app.db.models.memory import Memory
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import client, CHAT_MODELS
+from app.services.embedding_service import create_embedding
 
 async def create_memory(
     db,
     user_id,
-    content,
-    embedding,
-    memory_type="fact"
+    memory
 ):
+    memory_embedding = await create_embedding(memory['content'])
     memory = Memory(
         user_id=user_id,
-        content=content,
-        embedding=embedding,
-        memory_type=memory_type
+        embedding=memory_embedding,
+        content=memory["content"],
+        memory_type=memory["type"],
+        importance_score= memory["importance"]
     )
 
     db.add(memory)
@@ -53,7 +54,15 @@ async def search_memories(
         .limit(limit)
     )
 
-    return result.scalars().all()
+    rows = result.scalars().all()
+    return [
+        {
+            "content": row.content,
+            "memory_type": row.memory_type,
+            "importance": row.importance_score,
+        }
+        for row in rows
+    ]
 
 async def keyword_search_memories(
     db: AsyncSession,
@@ -69,40 +78,78 @@ async def keyword_search_memories(
         .order_by(desc(func.ts_rank(Memory.search_vector, tsq)))
         .limit(limit)
     )
-    return result.scalars().all()
+    rows = result.scalars().all()
+    return [
+        {
+            "content": row.content,
+            "memory_type": row.memory_type,
+            "importance": row.importance_score,
+        }
+        for row in rows
+    ]
 
-async def extract_memory(message):
-        response = await client.chat.completions.create(
-            model=CHAT_MODELS,
-            response_format={
-                "type": "json_object"
-            },
-            messages=[
+async def extract_memory(message, assistant_response):
+    response = await client.chat.completions.create(
+        model=CHAT_MODELS,
+        response_format={
+            "type": "json_object"
+        },
+        messages=[
+            {
+                "role": "system",
+                "content": """
+                Extract long-term useful memories.
+
+                Only extract:
+                - user goals
+                - preferences
+                - personal projects
+                - ongoing learning
+                - important facts
+
+                Return JSON:
+
                 {
-                    "role": "system",
-                    "content": """
-                    Extract useful long-term memory
-
-                    ONLY save if:
-                    - preference
-                    - personal profile
-                    - goals
-                    - ongoing projects
-                    - important facts
-
-                    Return JSON:
-                    {
-                        "should_save": true,
-                        "memory": "...",
-                        "memory_type": "..."
-                    }
-                    """
-                },
-                {
-                    "role": "user",
-                    "content": message
+                    "memories": [
+                        {
+                        "type": "goal",
+                        "content": "...",
+                        "importance": 0.9
+                        }
+                    ]
                 }
-            ]
-        )
+                """
+            },
+            {
+                "role": "user",
+                "content": f"""
 
-        return json.loads(response.choices[0].message.content)
+                USER MESSAGE:
+
+                {message}
+
+                ASSISTANT RESPONSE:
+
+                {assistant_response}
+
+                """
+            }
+        ]
+    )
+
+    return json.loads(response.choices[0].message.content)
+
+async def save_memories(
+    db,
+    user_id,
+    memories
+):
+    for memory in memories:
+        try:
+            await create_memory(
+                db=db,
+                user_id=user_id,
+                memory=memory
+            )
+        except Exception as e:
+            print("Memory save error:", str(e))

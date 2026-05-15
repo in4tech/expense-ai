@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal, client, CHAT_MODELS
 from app.services import chat_service, embedding_service, document_service
-from app.services.memory_service import create_memory, extract_memory, hybrid_search_memories
+from app.services.memory_service import search_memories
 from app.core.config import settings
 
 from app.agents.orchestrator.multi_agent_orchestrator import run_multi_agent
@@ -162,26 +162,21 @@ async def chat_stream(
         embedding=user_embedding
     )
 
-    memory_data = await extract_memory(user_text)
-    if(memory_data.get("should_save")):
-        memory_content = memory_data["memory"]
-        memory_embedding = await embedding_service.create_embedding(memory_content)
-
-        await create_memory(
-            db=db,
-            user_id=user_id,
-            content=memory_content,
-            embedding=memory_embedding,
-            memory_type=memory_data["memory_type"]
-        )
-        
-    relevant_memories = await hybrid_search_memories(
+    relevant_memories = await search_memories(
         db=db,
         user_id=user_id,
         embedding=user_embedding,
-        query=user_text,
     )
-    memory_context = "\n".join([f"- {memory.content}" for memory in relevant_memories])
+    memory_context = "\n".join([f"""
+        Memory Type:
+        {memory["memory_type"]}
+
+        Content:
+        {memory["content"]}
+
+        Importance:
+        {memory["importance"]}
+        """ for memory in relevant_memories])
     
     async def generate():
         final_response = ""
