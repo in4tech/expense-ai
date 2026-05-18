@@ -13,7 +13,6 @@ TOOLS = [
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Seach query"
                 }
             },
             "required": ["query"]

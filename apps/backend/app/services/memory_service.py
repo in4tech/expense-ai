@@ -137,19 +137,45 @@ async def extract_memory(message, assistant_response):
         ]
     )
 
-    return json.loads(response.choices[0].message.content)
+    content = response.choices[0].message.content or "{}"
+    return json.loads(content)
+
+
+def _normalize_memory(memory: dict) -> dict | None:
+    text = memory.get("content")
+    if not text or not str(text).strip():
+        return None
+
+    importance = memory.get("importance", memory.get("importance_score", 0.5))
+    try:
+        importance = float(importance)
+    except (TypeError, ValueError):
+        importance = 0.5
+
+    return {
+        "type": memory.get("type") or memory.get("memory_type") or "fact",
+        "content": str(text).strip(),
+        "importance": importance,
+    }
+
 
 async def save_memories(
     db,
     user_id,
-    memories
-):
+    memories,
+) -> int:
+    saved = 0
     for memory in memories:
+        normalized = _normalize_memory(memory)
+        if not normalized:
+            continue
         try:
             await create_memory(
                 db=db,
                 user_id=user_id,
-                memory=memory
+                memory=normalized,
             )
+            saved += 1
         except Exception as e:
             print("Memory save error:", str(e))
+    return saved

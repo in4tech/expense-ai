@@ -112,11 +112,13 @@ async def reflection_pipeline(
 
     if(needs_improvement and confidence < 0.8):
         return {
+            "confidence": confidence,
             "reflection": reflection,
-            "improved": True
+            "improved": True,
         }
 
     return {
+        "confidence": confidence,
         "reflection": reflection,
         "improved": False
     }

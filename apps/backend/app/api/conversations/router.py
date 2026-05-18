@@ -1,36 +1,26 @@
 import json
 
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import SessionLocal, client, CHAT_MODELS
+from app.db.session import DbSession, client, CHAT_MODELS
 from app.services import chat_service, embedding_service, document_service
 from app.services.memory_service import search_memories
 from app.core.config import settings
 
-from app.agents.orchestrator.multi_agent_orchestrator import run_multi_agent
+from app.agents.graph.graph_runner import GraphRunner
+from app.agents.graph.graph_state import GraphState
 
 router = APIRouter()
-MAX_INTERATION = 5
+graph = GraphRunner()
 
 def sse_event(data):
     return (
         f"data: "
         f"{json.dumps(data)}\n\n"
     )
-
-async def get_db():
-    async with SessionLocal() as session:
-        yield session
-
-
-DbSession = Annotated[AsyncSession, Depends(get_db)]
-
 
 class CreateConversationBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
@@ -180,14 +170,30 @@ async def chat_stream(
     
     async def generate():
         final_response = ""
-        async for chunk in run_multi_agent(
-            db=db,
-            user_query=user_text,
-            memory_context=memory_context,
-            user_id=user_id,
-            conversation_id=conversation_id,
-            send_event=sse_event
-        ):
+        state: GraphState = {
+            "db": db,
+            "user_query": user_text,
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "memory_context": memory_context,
+            "memories": [],
+            "tasks": [],
+            "execution_results": [],
+            "draft_anwser": "",
+            "final_anwser": "",
+            "reflection": {},
+        }
+
+        streamed_chunks: list[str] = []
+
+        async def send_event(data):
+            chunk = sse_event(data)
+            streamed_chunks.append(chunk)
+            return chunk
+
+        await graph.run(state, send_event)
+
+        for chunk in streamed_chunks:
             if chunk.startswith("data: "):
                 try:
                     payload = json.loads(chunk.removeprefix("data: ").strip())
@@ -199,19 +205,17 @@ async def chat_stream(
 
             yield chunk
 
-        ai_embedding = await embedding_service.create_embedding(final_response)
-        await chat_service.create_message(
-            db=db,
-            conversation_id=conversation_id,
-            role="assistant",
-            content=final_response,
-            embedding=ai_embedding
-        )
-
-        yield sse_event({
-            "type": "done",
-            "content": final_response
-        })
+        answer = state.get("final_anwser") or final_response
+        
+        if answer:
+            ai_embedding = await embedding_service.create_embedding(answer)
+            await chat_service.create_message(
+                db=db,
+                conversation_id=conversation_id,
+                role="assistant",
+                content=answer,
+                embedding=ai_embedding,
+            )
 
     return StreamingResponse(
         generate(),
