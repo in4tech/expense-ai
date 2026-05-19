@@ -1,6 +1,7 @@
 from typing import Annotated
 from fastapi import Depends
 from openai import AsyncOpenAI
+from langchain_openai import ChatOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
@@ -23,3 +24,7 @@ async def get_db():
         yield session
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
+
+planner_llm = ChatOpenAI(model=CHAT_MODELS, temperature=0)
+reasoning_llm = ChatOpenAI(model=CHAT_MODELS, temperature=0)
+critic_llm = ChatOpenAI(model=CHAT_MODELS, temperature=0)

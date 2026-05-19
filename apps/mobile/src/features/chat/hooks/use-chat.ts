@@ -31,10 +31,9 @@ const buildMessage = (
 });
 
 export type StreamingStatus =
-  | "searching_documents"
+  | "planning"
   | "reading_pdf"
   | "searching_web"
-  | "reflecting"
   | "generating_answer"
   | null;
 
@@ -45,33 +44,14 @@ const mapStreamingStatusFromEvent = (
   if (event.type === "content" || event.type === "done") {
     return "generating_answer";
   }
-  if (event.type === "tool_running") {
-    if (event.tool === "search_knowledge_base") {
-      return "searching_documents";
+  if (event.type === "node") {
+    if (event.node === "planner") {
+      return "planning";
     }
-    if (event.tool === "search_web") {
+    if (event.node === "tools") {
       return "searching_web";
     }
     return "generating_answer";
-  }
-
-  if (event.type === "tool_completed") {
-    return "generating_answer";
-  }
-
-  if (event.type === "thinking") {
-    return "generating_answer";
-  }
-
-  if (event.type === "reflection") {
-    if (event.status === "running") {
-      return "reflecting";
-    }
-    return "generating_answer";
-  }
-
-  if (event.type === "error") {
-    return undefined;
   }
   return undefined;
 };

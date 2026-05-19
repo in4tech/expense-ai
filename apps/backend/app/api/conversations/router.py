@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
@@ -10,11 +11,9 @@ from app.services import chat_service, embedding_service, document_service
 from app.services.memory_service import search_memories
 from app.core.config import settings
 
-from app.agents.graph.graph_runner import GraphRunner
-from app.agents.graph.graph_state import GraphState
+from app.agents.graph.workflow import app
 
 router = APIRouter()
-graph = GraphRunner()
 
 def sse_event(data):
     return (
@@ -167,40 +166,64 @@ async def chat_stream(
         Importance:
         {memory["importance"]}
         """ for memory in relevant_memories])
+
+    initial_state = {
+        "db": db,
+        "user_id": user_id,
+        "user_input": user_text,
+        "memory_context": memory_context,
+        "conversation_id": conversation_id,
+        "retrieval_docs": [],
+        "rerank_docs": [],
+        "tool_results": [],
+        "scratchpad": [],
+        "reflection": None,
+        "final_answer": None,
+        "planner_output": None,
+        "iteration_count": 0,
+    }
     
     async def generate():
+        yield sse_event({
+            "type": "start",
+        })
+
         final_response = ""
-        state: GraphState = {
-            "db": db,
-            "user_query": user_text,
-            "user_id": user_id,
-            "conversation_id": conversation_id,
-            "memory_context": memory_context,
-            "memories": [],
-            "tasks": [],
-            "execution_results": [],
-            "draft_anwser": "",
-            "final_anwser": "",
-            "reflection": {},
-        }
+        async for event in app.astream(initial_state, stream_mode="updates"):
+            for node_name, node_output in event.items():
+                yield sse_event({
+                    "type": "node",
+                    "node": node_name,
+                    "data": node_output,
+                })
 
-        async for chunk in graph.run(state, sse_event):
-            yield chunk
+                if node_name == "synthesis":
+                    answer = node_output.get("final_answer")
+                    chunk = answer if isinstance(answer, str) else str(answer or "")
+                    if not chunk:
+                        continue
 
-        answer = state.get("final_anwser") or final_response
-        if answer:
-            ai_embedding = await embedding_service.create_embedding(answer)
+                    final_response = chunk
+                    yield sse_event({
+                        "type": "content",
+                        "content": chunk,
+                    })
+
+                await asyncio.sleep(0)
+        
+        if final_response:
+            ai_embedding = await embedding_service.create_embedding(final_response)
             await chat_service.create_message(
                 db=db,
                 conversation_id=conversation_id,
                 role="assistant",
-                content=answer,
+                content=final_response,
                 embedding=ai_embedding,
             )
 
         yield sse_event({
             "type": "done",
-            "answer": answer,
+            "content": final_response,
         })
 
     return StreamingResponse(

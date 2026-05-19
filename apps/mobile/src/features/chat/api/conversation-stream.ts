@@ -13,7 +13,11 @@ export type SseReflectionEvent = {
   type: "reflection";
   status: "running" | "completed";
 };
-export type SseDoneEvent = { type: "done"; content?: string };
+export type SseDoneEvent = {
+  type: "done";
+  content?: string;
+  answer?: string;
+};
 export type SseErrorEvent = { type: "error"; message?: string };
 
 export type SsePayload =
@@ -140,8 +144,17 @@ export const sendConversationMessage = async (
       }
 
       if (payload.type === "done") {
-        if (typeof payload.content === "string" && payload.content.length > 0) {
-          full = payload.content;
+        const doneText =
+          typeof payload.content === "string"
+            ? payload.content
+            : typeof payload.answer === "string"
+              ? payload.answer
+              : "";
+        if (doneText.length > full.length) {
+          onDelta(doneText.slice(full.length));
+        }
+        if (doneText.length > 0) {
+          full = doneText;
         }
         finalize();
         return;

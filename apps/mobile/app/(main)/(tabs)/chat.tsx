@@ -121,8 +121,8 @@ export default function ChatScreen() {
     (input.trim().length > 0 || pickedAttachment != null) && !isSending;
 
   const typingStatusText = useMemo(() => {
-    if (streamingStatus === "searching_documents") {
-      return dictionary.chat.statusSearchingDocuments;
+    if (streamingStatus === "planning") {
+      return dictionary.chat.statusPlanning;
     }
     if (streamingStatus === "reading_pdf") {
       return dictionary.chat.statusReadingPdf;
@@ -130,19 +130,14 @@ export default function ChatScreen() {
     if (streamingStatus === "searching_web") {
       return dictionary.chat.statusSearchingWeb;
     }
-    if (streamingStatus === "reflecting") {
-      return dictionary.chat.statusReflecting;
-    }
     if (streamingStatus === "generating_answer") {
       return dictionary.chat.statusGeneratingAnswer;
     }
     return dictionary.chat.typing;
   }, [
     streamingStatus,
-    dictionary.chat.statusSearchingDocuments,
     dictionary.chat.statusReadingPdf,
     dictionary.chat.statusSearchingWeb,
-    dictionary.chat.statusReflecting,
     dictionary.chat.statusGeneratingAnswer,
     dictionary.chat.typing,
   ]);

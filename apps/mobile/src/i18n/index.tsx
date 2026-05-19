@@ -20,10 +20,9 @@ type Dictionary = {
     assistantName: string;
     you: string;
     typing: string;
-    statusSearchingDocuments: string;
+    statusPlanning: string;
     statusReadingPdf: string;
     statusSearchingWeb: string;
-    statusReflecting: string;
     statusGeneratingAnswer: string;
     retry: string;
     inputPlaceholder: string;

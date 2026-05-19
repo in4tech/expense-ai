@@ -8,6 +8,9 @@ fastapi==0.136.1
 h11==0.16.0
 idna==3.14
 openai
+langchain>=0.3.0
+langchain-openai>=0.3.0
+langgraph>=0.2.0
 Pillow==11.2.1
 psycopg2-binary==2.9.12
 pytesseract==0.3.13
