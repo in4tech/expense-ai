@@ -159,6 +159,27 @@ def _normalize_memory(memory: dict) -> dict | None:
     }
 
 
+async def persist_turn_memories(
+    db: AsyncSession,
+    user_id: int,
+    user_message: str,
+    assistant_response: str,
+) -> int:
+    """Extract and store long-term memories from a user turn + assistant reply."""
+    if not user_message.strip():
+        return 0
+
+    try:
+        extracted = await extract_memory(user_message, assistant_response or "")
+        memories = extracted.get("memories") if isinstance(extracted, dict) else []
+        if not isinstance(memories, list) or not memories:
+            return 0
+        return await save_memories(db=db, user_id=user_id, memories=memories)
+    except Exception as e:
+        print("persist_turn_memories error:", str(e))
+        return 0
+
+
 async def save_memories(
     db,
     user_id,

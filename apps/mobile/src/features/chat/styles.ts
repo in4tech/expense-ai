@@ -309,6 +309,21 @@ export const chatScreenStyles = StyleSheet.create({
     gap: 10,
     paddingBottom: 8,
   },
+  loadMoreHeader: {
+    width: '100%',
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadMoreInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
   daySeparatorRow: {
     width: '100%',
     alignItems: 'center',

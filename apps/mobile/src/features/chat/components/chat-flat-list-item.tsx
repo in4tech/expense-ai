@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -12,7 +13,7 @@ export type ChatFlatListItemProps = {
   colors: ChatThemeColors;
 };
 
-export function ChatFlatListItem({ item, isDark, colors: c }: ChatFlatListItemProps) {
+function ChatFlatListItemImpl({ item, isDark, colors: c }: ChatFlatListItemProps) {
   if (item.type === 'day') {
     return (
       <View style={styles.daySeparatorRow}>
@@ -83,3 +84,27 @@ export function ChatFlatListItem({ item, isDark, colors: c }: ChatFlatListItemPr
     </View>
   );
 }
+
+/**
+ * Custom equality so streaming SSE deltas only re-render the assistant bubble
+ * whose `content` changed, not every other row in the FlatList.
+ */
+export const ChatFlatListItem = memo(ChatFlatListItemImpl, (prev, next) => {
+  if (prev.isDark !== next.isDark) return false;
+  if (prev.colors !== next.colors) return false;
+  const a = prev.item;
+  const b = next.item;
+  if (a.type !== b.type) return false;
+  if (a.type === 'day' && b.type === 'day') {
+    return a.id === b.id && a.label === b.label;
+  }
+  if (a.type === 'message' && b.type === 'message') {
+    return (
+      a.message.id === b.message.id &&
+      a.message.role === b.message.role &&
+      a.message.content === b.message.content &&
+      a.message.metadata === b.message.metadata
+    );
+  }
+  return false;
+});

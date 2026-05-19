@@ -41,6 +41,7 @@ export const en = {
     pickedKindDocument: 'Document',
     clear: 'Clear conversation',
     scrollToLatest: 'Scroll to latest messages',
+    loadingMore: 'Loading older messages…',
     newChatA11y: 'New chat',
     moreMenuA11y: 'More options',
     temporaryChatTitle: 'Temporary chat',

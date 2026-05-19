@@ -45,6 +45,7 @@ type Dictionary = {
     pickedKindDocument: string;
     clear: string;
     scrollToLatest: string;
+    loadingMore: string;
     newChatA11y: string;
     moreMenuA11y: string;
     temporaryChatTitle: string;

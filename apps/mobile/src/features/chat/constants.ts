@@ -1,3 +1,4 @@
 export const CHAT_TOP_OVERLAY_INSET = 100;
 export const SCROLL_NEAR_BOTTOM_PX = 120;
+export const SCROLL_LOAD_MORE_TRIGGER_PX = 120;
 export const API_MESSAGE_MAX = 10_000;

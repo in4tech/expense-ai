@@ -1,14 +1,17 @@
 import asyncio
 import json
+import re
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import StreamingResponse
 
+from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
 from app.db.session import DbSession, client, CHAT_MODELS
 from app.services import chat_service, embedding_service, document_service
-from app.services.memory_service import search_memories
+from app.services.memory_service import persist_turn_memories, search_memories
 from app.core.config import settings
 
 from app.agents.graph.workflow import app
@@ -60,13 +63,26 @@ async def create_conversation_route(db: DbSession, body: CreateConversationBody 
     return _conversation_summary_row(conversation)
 
 @router.get("/{conversation_id}/messages")
-async def get_conversation_messages(conversation_id: int, db: DbSession, limit: int = Query(default=20, ge=1, le=500)):
+async def get_conversation_messages(
+    conversation_id: int,
+    db: DbSession,
+    limit: int = Query(default=20, ge=1, le=500),
+    before_id: int | None = Query(default=None, ge=1),
+):
     conversation = await chat_service.get_conversation(db, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = await chat_service.get_messages(db, conversation_id, limit=limit)
-    return {"messages": [_message_row(m) for m in messages]}
+    messages, has_more = await chat_service.get_messages_page(
+        db,
+        conversation_id,
+        limit=limit,
+        before_id=before_id,
+    )
+    return {
+        "messages": [_message_row(m) for m in messages],
+        "hasMore": has_more,
+    }
 
 @router.delete("/{conversation_id}")
 async def delete_conversation(conversation_id: int, db: DbSession):
@@ -133,16 +149,27 @@ async def chat_stream(
 ):
     api_key = settings.OPENAI_API_KEY
     if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+        raise HTTPException(
+            status_code=500,
+            detail="OPENAI_API_KEY is not configured"
+        )
 
-    conversation = await chat_service.get_conversation(db, conversation_id)
+    conversation = await chat_service.get_conversation(
+        db,
+        conversation_id
+    )
     if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
 
     user_id = body.user_id
     user_text = body.message
+    user_embedding = await embedding_service.create_embedding(
+        user_text
+    )
 
-    user_embedding = await embedding_service.create_embedding(user_text)
     await chat_service.create_message(
         db=db,
         conversation_id=conversation_id,
@@ -156,6 +183,7 @@ async def chat_stream(
         user_id=user_id,
         embedding=user_embedding,
     )
+
     memory_context = "\n".join([f"""
         Memory Type:
         {memory["memory_type"]}
@@ -165,7 +193,9 @@ async def chat_stream(
 
         Importance:
         {memory["importance"]}
-        """ for memory in relevant_memories])
+        """
+        for memory in relevant_memories
+    ])
 
     initial_state = {
         "db": db,
@@ -178,39 +208,96 @@ async def chat_stream(
         "tool_results": [],
         "scratchpad": [],
         "reflection": None,
-        "final_answer": None,
         "planner_output": None,
         "iteration_count": 0,
     }
-    
+
     async def generate():
-        yield sse_event({
-            "type": "start",
-        })
+        yield sse_event({"type": "start"})
+        graph_result = await app.ainvoke(initial_state)
+
+        yield sse_event({"type": "graph_done"})
+        system_prompt = f"""
+            You are a helpful AI assistant.
+
+            Use the provided context to answer accurately.
+
+            Relevant memory:
+            {memory_context}
+            """
+
+        final_prompt = f"""
+            User question:
+            {user_text}
+
+            Planner output:
+            {graph_result.get("planner_output")}
+
+            Retrieved docs:
+            {graph_result.get("retrieval_docs")}
+
+            Reranked docs:
+            {graph_result.get("rerank_docs")}
+
+            Tool results:
+            {graph_result.get("tool_results")}
+
+            Scratchpad:
+            {graph_result.get("scratchpad")}
+
+            Reflection:
+            {graph_result.get("reflection")}
+            """
+
+        llm = ChatOpenAI(
+            api_key=api_key,
+            model="gpt-4o-mini",
+            temperature=0.7,
+            streaming=True,
+        )
 
         final_response = ""
-        async for event in app.astream(initial_state, stream_mode="updates"):
-            for node_name, node_output in event.items():
-                yield sse_event({
-                    "type": "node",
-                    "node": node_name,
-                    "data": node_output,
-                })
+        buffer = ""
 
-                if node_name == "synthesis":
-                    answer = node_output.get("final_answer")
-                    chunk = answer if isinstance(answer, str) else str(answer or "")
-                    if not chunk:
-                        continue
+        async for chunk in llm.astream([
+            SystemMessage(content=system_prompt),
+            HumanMessage(content=final_prompt),
+        ]):
+            content = chunk.content or ""
+            if not content:
+                continue
 
-                    final_response = chunk
+            final_response += content
+            buffer += content
+
+            should_flush = (
+                len(buffer) >= 40
+                or re.search(r"[.!?]\s$", buffer)
+            )
+
+            if should_flush:
+                last_break = max(
+                    buffer.rfind(" "),
+                    buffer.rfind("\n")
+                )
+
+                if last_break != -1:
+                    send_text = buffer[:last_break + 1]
+                    buffer = buffer[last_break + 1:]
+
                     yield sse_event({
                         "type": "content",
-                        "content": chunk,
+                        "content": send_text
                     })
 
-                await asyncio.sleep(0)
-        
+            await asyncio.sleep(0)
+
+        if buffer:
+            yield sse_event({
+                "type": "content",
+                "content": buffer
+            })
+
         if final_response:
             ai_embedding = await embedding_service.create_embedding(final_response)
             await chat_service.create_message(
@@ -219,6 +306,12 @@ async def chat_stream(
                 role="assistant",
                 content=final_response,
                 embedding=ai_embedding,
+            )
+            await persist_turn_memories(
+                db=db,
+                user_id=user_id,
+                user_message=user_text,
+                assistant_response=final_response,
             )
 
         yield sse_event({

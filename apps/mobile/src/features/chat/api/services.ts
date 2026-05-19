@@ -55,16 +55,25 @@ export const deleteConversation = async (client: ApiClient, conversationId: stri
 
 export type GetConversationMessagesOptions = {
   limit?: number;
+  beforeId?: string;
+};
+
+export type ConversationMessagesPage = {
+  messages: ChatMessage[];
+  hasMore: boolean;
 };
 
 export const getConversationMessages = async (
   client: ApiClient,
   conversationId: string,
   options?: GetConversationMessagesOptions,
-): Promise<ChatMessage[]> => {
+): Promise<ConversationMessagesPage> => {
   const params = new URLSearchParams();
   if (options?.limit != null) {
     params.set('limit', String(options.limit));
+  }
+  if (options?.beforeId != null && options.beforeId !== '') {
+    params.set('before_id', String(options.beforeId));
   }
   const query = params.toString();
   const path = apiPaths.conversations.messages(conversationId, query || undefined);
@@ -76,7 +85,9 @@ export const getConversationMessages = async (
   if (!Array.isArray(raw)) {
     throw new Error('Invalid messages response.');
   }
-  return raw.map((row): ChatMessage => {
+  const hasMoreRaw = (payload as { hasMore?: unknown }).hasMore;
+  const hasMore = typeof hasMoreRaw === 'boolean' ? hasMoreRaw : false;
+  const messages = raw.map((row): ChatMessage => {
     if (!row || typeof row !== 'object') {
       return {
         id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -95,4 +106,5 @@ export const getConversationMessages = async (
       createdAt: String(item.createdAt ?? new Date().toISOString()),
     };
   });
+  return { messages, hasMore };
 };

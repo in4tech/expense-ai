@@ -41,6 +41,7 @@ export const vn = {
     pickedKindDocument: 'Tài liệu',
     clear: 'Xóa cuộc trò chuyện',
     scrollToLatest: 'Xuống tin nhắn mới nhất',
+    loadingMore: 'Đang tải tin nhắn cũ hơn…',
     newChatA11y: 'Chat mới',
     moreMenuA11y: 'Thêm tùy chọn',
     temporaryChatTitle: 'Chat tạm',

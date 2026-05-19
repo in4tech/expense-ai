@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { DEFAULT_API_BASE_URL } from "@/src/config/env";
@@ -86,6 +86,29 @@ export const useChat = () => {
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   /** When true, new messages still sync to the server but the thread is hidden from the recents list. */
   const [temporaryMode, setTemporaryMode] = useState(false);
+
+  /** Pagination: whether the server still has messages older than the currently-loaded page. */
+  const [hasMoreOlderMessages, setHasMoreOlderMessages] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+
+  /**
+   * Streaming buffer + rAF flush. Backend sends many small SSE chunks per second;
+   * committing every chunk to React causes the FlatList to re-render at SSE-rate
+   * (often >60Hz) which drops frames. We coalesce all chunks received in a frame
+   * into a single setMessages call.
+   */
+  const streamBufferRef = useRef("");
+  const streamFlushRafRef = useRef<number | null>(null);
+  const streamTargetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (streamFlushRafRef.current != null) {
+        cancelAnimationFrame(streamFlushRafRef.current);
+        streamFlushRafRef.current = null;
+      }
+    };
+  }, []);
 
   const hasMessages = messages.length > 0;
 
@@ -197,6 +220,27 @@ export const useChat = () => {
       setMessages(withAssistantMessage);
 
       let streamedReply = "";
+      streamBufferRef.current = "";
+      streamTargetIdRef.current = assistantMessageId;
+
+      const flushStreamBuffer = () => {
+        streamFlushRafRef.current = null;
+        if (streamBufferRef.current === "") {
+          return;
+        }
+        const targetId = streamTargetIdRef.current;
+        if (!targetId) {
+          streamBufferRef.current = "";
+          return;
+        }
+        const next = streamBufferRef.current;
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === targetId ? { ...message, content: next } : message,
+          ),
+        );
+      };
+
       const response = await sendConversationMessage(
         apiClient,
         conversationId,
@@ -204,13 +248,11 @@ export const useChat = () => {
         {
           onDelta: (delta) => {
             streamedReply += delta;
-            setMessages((current) =>
-              current.map((message) =>
-                message.id === assistantMessageId
-                  ? { ...message, content: streamedReply }
-                  : message,
-              ),
-            );
+            streamBufferRef.current = streamedReply;
+            if (streamFlushRafRef.current == null) {
+              streamFlushRafRef.current =
+                requestAnimationFrame(flushStreamBuffer);
+            }
           },
           onEvent: (event) => {
             const next = mapStreamingStatusFromEvent(event);
@@ -220,6 +262,13 @@ export const useChat = () => {
           },
         },
       );
+
+      if (streamFlushRafRef.current != null) {
+        cancelAnimationFrame(streamFlushRafRef.current);
+        streamFlushRafRef.current = null;
+      }
+      streamBufferRef.current = "";
+      streamTargetIdRef.current = null;
 
       const finalReply =
         response.reply.trim().length > 0 ? response.reply : streamedReply;
@@ -239,6 +288,12 @@ export const useChat = () => {
       }
       setInput("");
     } catch (sendError) {
+      if (streamFlushRafRef.current != null) {
+        cancelAnimationFrame(streamFlushRafRef.current);
+        streamFlushRafRef.current = null;
+      }
+      streamBufferRef.current = "";
+      streamTargetIdRef.current = null;
       setMessages((current) =>
         current.filter(
           (message) => !(message.role === "assistant" && !message.content),
@@ -271,11 +326,12 @@ export const useChat = () => {
     try {
       const conversationId = await ensureConversation(hideFromRecents);
       await uploadConversationPdf(apiClient, conversationId, file);
-      const loaded = await getConversationMessages(apiClient, conversationId);
-      setMessages(loaded);
+      const page = await getConversationMessages(apiClient, conversationId);
+      setMessages(page.messages);
+      setHasMoreOlderMessages(page.hasMore);
       setLastUserMessage(null);
       if (!hideFromRecents) {
-        upsertConversation(conversationId, loaded);
+        upsertConversation(conversationId, page.messages);
         try {
           await queryClient.refetchQueries({ queryKey: conversationsListKey });
         } catch {
@@ -315,14 +371,16 @@ export const useChat = () => {
     setStreamingStatus("generating_answer");
     setIsSending(true);
     try {
-      const remote = await getConversationMessages(
+      const remotePage = await getConversationMessages(
         apiClient,
         activeConversationId,
       );
+      const remote = remotePage.messages;
       const lastRemote = remote[remote.length - 1];
 
       if (lastRemote?.role === "assistant") {
         setMessages(remote);
+        setHasMoreOlderMessages(remotePage.hasMore);
         if (!hideFromRecents) {
           upsertConversation(activeConversationId, remote);
           try {
@@ -390,6 +448,8 @@ export const useChat = () => {
     setError(null);
     setLastUserMessage(null);
     setActiveConversationId(null);
+    setHasMoreOlderMessages(false);
+    setIsLoadingOlderMessages(false);
   };
 
   const loadConversation = async (conversationId: string) => {
@@ -398,9 +458,12 @@ export const useChat = () => {
     }
     setError(null);
     setTemporaryMode(false);
+    setHasMoreOlderMessages(false);
+    setIsLoadingOlderMessages(false);
     try {
-      const loaded = await getConversationMessages(apiClient, conversationId);
-      setMessages(loaded);
+      const page = await getConversationMessages(apiClient, conversationId);
+      setMessages(page.messages);
+      setHasMoreOlderMessages(page.hasMore);
       setActiveConversationId(conversationId);
       setLastUserMessage(null);
     } catch (loadError) {
@@ -411,6 +474,65 @@ export const useChat = () => {
       );
     }
   };
+
+  /**
+   * Cursor pagination: fetch the page just older than the currently-loaded
+   * oldest message and prepend. Safe to call repeatedly while scrolled near
+   * the top — internal guards prevent overlapping requests and stop once the
+   * server reports no more older pages.
+   */
+  const loadOlderMessages = useCallback(async () => {
+    if (isLoadingOlderMessages) {
+      return;
+    }
+    if (!hasMoreOlderMessages) {
+      return;
+    }
+    if (isSending) {
+      // Avoid interleaving prepend with the streaming reply tail.
+      return;
+    }
+    const conversationId = activeConversationId;
+    if (!conversationId) {
+      return;
+    }
+    const oldest = messages[0];
+    if (!oldest) {
+      return;
+    }
+
+    setIsLoadingOlderMessages(true);
+    try {
+      const page = await getConversationMessages(apiClient, conversationId, {
+        beforeId: oldest.id,
+      });
+      if (page.messages.length === 0) {
+        setHasMoreOlderMessages(false);
+        return;
+      }
+      setMessages((current) => {
+        const existingIds = new Set(current.map((m) => m.id));
+        const prepended = page.messages.filter((m) => !existingIds.has(m.id));
+        return prepended.length === 0 ? current : [...prepended, ...current];
+      });
+      setHasMoreOlderMessages(page.hasMore);
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Không thể tải thêm tin nhắn cũ.",
+      );
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  }, [
+    apiClient,
+    activeConversationId,
+    hasMoreOlderMessages,
+    isLoadingOlderMessages,
+    isSending,
+    messages,
+  ]);
 
   const toggleTemporaryChatMode = () => {
     if (isSending) {
@@ -506,5 +628,8 @@ export const useChat = () => {
     discardActiveConversation,
     isRefreshingConversations,
     isDeletingConversation,
+    hasMoreOlderMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
   };
 };

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -16,8 +17,10 @@ import {
 } from "@/src/features/chat/helpers";
 import {
   CHAT_TOP_OVERLAY_INSET,
+  SCROLL_LOAD_MORE_TRIGGER_PX,
   SCROLL_NEAR_BOTTOM_PX,
 } from "@/src/features/chat/constants";
+import { ThemedText } from "@/components/themed-text";
 import { chatScreenStyles as styles } from "@/src/features/chat/styles";
 import { composeOutgoingMessage } from "@/src/features/chat/compose-attachment-message";
 import {
@@ -74,6 +77,9 @@ export default function ChatScreen() {
     deleteActiveConversation,
     refreshConversationHistory,
     isRefreshingConversations,
+    hasMoreOlderMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
   } = useChat();
 
   const {
@@ -142,19 +148,34 @@ export default function ChatScreen() {
     dictionary.chat.typing,
   ]);
 
+  // Latest-value refs so the scroll handler can fire `loadOlderMessages` without
+  // recreating the callback (which would re-bind FlatList's onScroll every render).
+  const loadOlderMessagesRef = useRef(loadOlderMessages);
+  loadOlderMessagesRef.current = loadOlderMessages;
+  const canLoadOlderRef = useRef(false);
+  canLoadOlderRef.current =
+    hasMoreOlderMessages && !isLoadingOlderMessages && !isSending;
+
   const updateScrollBottomFlag = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
-      if (contentSize.height <= layoutMeasurement.height + 8) {
-        atBottomRef.current = true;
-        setShowJumpToBottom(false);
-        return;
-      }
+      const fitsViewport = contentSize.height <= layoutMeasurement.height + 8;
       const distanceFromBottom =
         contentSize.height - layoutMeasurement.height - contentOffset.y;
-      const atBottom = distanceFromBottom <= SCROLL_NEAR_BOTTOM_PX;
+      const atBottom =
+        fitsViewport || distanceFromBottom <= SCROLL_NEAR_BOTTOM_PX;
       atBottomRef.current = atBottom;
-      setShowJumpToBottom(!atBottom);
+      // Avoid setState churn (and parent re-render during streaming) when value is unchanged.
+      setShowJumpToBottom((prev) => (prev === !atBottom ? prev : !atBottom));
+
+      // Trigger pagination when user reaches near the top of the list.
+      if (
+        canLoadOlderRef.current &&
+        !fitsViewport &&
+        contentOffset.y <= SCROLL_LOAD_MORE_TRIGGER_PX
+      ) {
+        void loadOlderMessagesRef.current();
+      }
     },
     [],
   );
@@ -361,6 +382,42 @@ export default function ChatScreen() {
     [isDark, c],
   );
 
+  const listHeader = useMemo(() => {
+    if (!hasMoreOlderMessages && !isLoadingOlderMessages) {
+      return null;
+    }
+    return (
+      <View style={styles.loadMoreHeader}>
+        {isLoadingOlderMessages ? (
+          <View style={styles.loadMoreInner}>
+            <ActivityIndicator size="small" color={c.topIcon} />
+            <ThemedText
+              style={[styles.loadMoreText, { color: c.textMuted }]}
+              numberOfLines={1}
+            >
+              {dictionary.chat.loadingMore}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+    );
+  }, [
+    hasMoreOlderMessages,
+    isLoadingOlderMessages,
+    c.topIcon,
+    c.textMuted,
+    dictionary.chat.loadingMore,
+  ]);
+
+  /**
+   * Preserve viewport when older messages are prepended. `minIndexForVisible: 1`
+   * lets the loading header (index 0) appear/disappear without nudging the view.
+   */
+  const maintainVisibleContentPosition = useMemo(
+    () => ({ minIndexForVisible: 1, autoscrollToTopThreshold: undefined }),
+    [],
+  );
+
   return (
     <View style={{ flex: 1 }}>
       <KeyboardAvoidingView
@@ -389,6 +446,10 @@ export default function ChatScreen() {
                   removeClippedSubviews={Platform.OS === "android"}
                   onContentSizeChange={scheduleScrollToEndIfAtBottom}
                   renderItem={renderChatListItem}
+                  ListHeaderComponent={listHeader}
+                  maintainVisibleContentPosition={
+                    maintainVisibleContentPosition
+                  }
                 />
                 {showJumpToBottom ? (
                   <View

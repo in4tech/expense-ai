@@ -4,6 +4,7 @@
  */
 export { apiPaths } from '@/src/lib/api/paths';
 export type {
+  ConversationMessagesPage,
   ConversationSummaryDto,
   GetConversationMessagesOptions,
 } from '@/src/features/chat/api/services';

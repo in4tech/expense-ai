@@ -72,6 +72,31 @@ async def get_messages(
     return rows
 
 
+async def get_messages_page(
+    db: AsyncSession,
+    conversation_id: int,
+    *,
+    limit: int = 20,
+    before_id: int | None = None,
+) -> tuple[list[Message], bool]:
+    capped = min(max(limit, 1), 500)
+    stmt = select(Message).where(Message.conversation_id == conversation_id)
+    if before_id is not None:
+        stmt = stmt.where(Message.id < before_id)
+    stmt = (
+        stmt.order_by(Message.created_at.desc(), Message.id.desc())
+        # Fetch one extra row to detect whether more older messages exist.
+        .limit(capped + 1)
+    )
+    result = await db.execute(stmt)
+    rows = list(result.scalars().all())
+    has_more = len(rows) > capped
+    if has_more:
+        rows = rows[:capped]
+    rows.reverse()
+    return rows, has_more
+
+
 async def create_message(
     db: AsyncSession,
     conversation_id: int,
