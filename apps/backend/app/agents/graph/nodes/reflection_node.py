@@ -18,7 +18,7 @@ class ReflectionNode(BaseNode):
         )
 
         state["reflection"] = reflection
-        await send_event({
+        yield send_event({
             "type": "reflection",
             "confidence": reflection["confidence"],
         })

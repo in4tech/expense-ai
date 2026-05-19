@@ -184,29 +184,10 @@ async def chat_stream(
             "reflection": {},
         }
 
-        streamed_chunks: list[str] = []
-
-        async def send_event(data):
-            chunk = sse_event(data)
-            streamed_chunks.append(chunk)
-            return chunk
-
-        await graph.run(state, send_event)
-
-        for chunk in streamed_chunks:
-            if chunk.startswith("data: "):
-                try:
-                    payload = json.loads(chunk.removeprefix("data: ").strip())
-                except json.JSONDecodeError:
-                    payload = {}
-                piece = payload.get("content")
-                if piece:
-                    final_response += piece
-
+        async for chunk in graph.run(state, sse_event):
             yield chunk
 
         answer = state.get("final_anwser") or final_response
-        
         if answer:
             ai_embedding = await embedding_service.create_embedding(answer)
             await chat_service.create_message(
@@ -216,6 +197,11 @@ async def chat_stream(
                 content=answer,
                 embedding=ai_embedding,
             )
+
+        yield sse_event({
+            "type": "done",
+            "answer": answer,
+        })
 
     return StreamingResponse(
         generate(),

@@ -11,7 +11,7 @@ class PlannerNode(BaseNode):
         state: GraphState,
         send_event
     ):
-        await send_event({
+        yield send_event({
             "type": "planning"
         })
 
@@ -21,7 +21,7 @@ class PlannerNode(BaseNode):
         )
 
         state["tasks"] = plan["tasks"]
-        await send_event({
+        yield send_event({
             "type": "plan_created",
             "tasks": state["tasks"]
         })

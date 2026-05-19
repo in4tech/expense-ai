@@ -2,14 +2,14 @@
 from app.agents.planner.planner_node import PlannerNode
 from app.agents.graph.nodes.reflection_node import ReflectionNode
 from app.agents.graph.graph_state import GraphState
-from app.agents.graph.nodes.autonomous_agent_node import AutonomousAgentNode
 from app.services.memory_service import extract_memory, save_memories
+from app.agents.autonomous.autonomous_agent import AutonomouseAgent
 
 
 class GraphRunner:
     def __init__(self):
         self.planner = PlannerNode()
-        self.agent = AutonomousAgentNode()
+        self.agent = AutonomouseAgent()
         self.reflection = ReflectionNode()
 
     
@@ -21,17 +21,20 @@ class GraphRunner:
         # =================================================
         # PLANNER
         # =================================================
-        await self.planner.run(state, send_event)
+        async for event in self.planner.run(state, send_event):
+            yield event
 
         # =================================================
         # AUTONOMOUS AGENT
         # =================================================
-        await self.agent.run(state, send_event)
+        async for event in self.agent.run(state, send_event):
+            yield event
 
         # =================================================
         # REFLECTION
         # =================================================
-        await self.reflection.run(state, send_event)
+        async for event in self.reflection.run(state, send_event):
+            yield event
 
         # =====================================================
         # MEMORY EXTRACTION
@@ -42,14 +45,14 @@ class GraphRunner:
             or ""
         ).strip()
 
-        await send_event({
+        yield send_event({
             "type": "memory_extraction",
             "message": state["user_query"],
             "assistant_response": assistant_response,
         })
 
         if not assistant_response:
-            await send_event({
+            yield send_event({
                 "type": "memory_saved",
                 "count": 0,
             })
@@ -71,7 +74,7 @@ class GraphRunner:
             memories=memory_items,
         )
 
-        await send_event({
+        yield send_event({
             "type": "memory_saved",
             "count": saved_count,
         })

@@ -5,6 +5,8 @@ from app.agents.autonomous.scratchpad import Scratchpad
 from app.db.session import client
 from app.tools.agent_tools import TOOLS_MAP
 from app.tools.tool_definitions import TOOLS
+from app.agents.synthesis.synthesis_agent import synthesis_stream
+from app.agents.graph.graph_state import GraphState
 
 
 class AutonomouseAgent:
@@ -13,12 +15,13 @@ class AutonomouseAgent:
 
     async def run(
         self,
-        db,
-        user_query,
-        user_id,
-        conversation_id,
-        send_event
+        state: GraphState,
+        send_event,
     ):
+        db = state["db"]
+        user_query = state["user_query"]
+        user_id = state["user_id"]
+        conversation_id = state["conversation_id"]
         scratchpad = Scratchpad()
 
         messages = [
@@ -49,8 +52,10 @@ class AutonomouseAgent:
             }
         ]
 
+        execution_results = ""
+
         for iteration in range(self.max_iterations):
-            await send_event({
+            yield send_event({
                 "type": "agent_iteration",
                 "iteration": iteration + 1
             })
@@ -95,7 +100,7 @@ class AutonomouseAgent:
                     
                     args = json.loads(tool_call.function.arguments)
 
-                    await send_event({
+                    yield send_event({
                         "type": "tool_running",
                         "tool": tool_name,
                         "args": args
@@ -132,7 +137,7 @@ class AutonomouseAgent:
                     except Exception as e:
                         result = f"Tool Error: {str(e)}"
 
-                    await send_event({
+                    yield send_event({
                         "type": "tool_completed",
                         "tool": tool_name
                     })
@@ -157,9 +162,23 @@ class AutonomouseAgent:
 
                 continue
 
-            if assistant_message.content:
-                return assistant_message.content
+            execution_results = assistant_message.content or scratchpad.format()
+            break
 
-        return assistant_message.content or ""
-            
+        if not execution_results:
+            execution_results = scratchpad.format()
+
+        draft_answer = ""
+        async for delta in synthesis_stream(
+            user_query=user_query,
+            execution_results=execution_results,
+        ):
+            draft_answer += delta
+            yield send_event({
+                "type": "content",
+                "content": delta,
+            })
+
+        state["draft_anwser"] = draft_answer
+        state["final_anwser"] = draft_answer
 
