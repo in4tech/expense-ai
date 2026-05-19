@@ -2,7 +2,7 @@ import asyncio
 import json
 import re
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -23,6 +23,47 @@ def sse_event(data):
         f"data: "
         f"{json.dumps(data)}\n\n"
     )
+
+
+def _format_context_docs(docs) -> str:
+    if not docs:
+        return "(none)"
+    parts: list[str] = []
+    for doc in docs:
+        if isinstance(doc, dict):
+            label = str(doc.get("type") or "context")
+            body = (doc.get("content") or "").strip()
+            if body:
+                parts.append(f"[{label}]\n{body}")
+        else:
+            text = str(doc).strip()
+            if text:
+                parts.append(text)
+    return "\n\n".join(parts) if parts else "(none)"
+
+
+def _format_tool_results(results) -> str:
+    if not results:
+        return "(none)"
+    parts: list[str] = []
+    for entry in results:
+        if not isinstance(entry, dict):
+            parts.append(str(entry))
+            continue
+        tool = entry.get("tool", "tool")
+        body = entry.get("result", "")
+        parts.append(f"[{tool}]\n{body}")
+    return "\n\n".join(parts) if parts else "(none)"
+
+
+def _format_scratchpad(scratchpad) -> str:
+    if not scratchpad:
+        return "(none)"
+    if isinstance(scratchpad, list):
+        return "\n".join(
+            item if isinstance(item, str) else str(item) for item in scratchpad
+        ).strip() or "(none)"
+    return str(scratchpad)
 
 class CreateConversationBody(BaseModel):
     title: str | None = Field(default=None, max_length=200)
@@ -217,10 +258,30 @@ async def chat_stream(
         graph_result = await app.ainvoke(initial_state)
 
         yield sse_event({"type": "graph_done"})
+
+        rerank_docs = graph_result.get("rerank_docs") or []
+        has_pdf_context = any(
+            isinstance(d, dict) and d.get("type") == "document" and (d.get("content") or "").strip()
+            for d in rerank_docs
+        )
+
         system_prompt = f"""
             You are a helpful AI assistant.
 
-            Use the provided context to answer accurately.
+            Answer the user's question using the Retrieved context below. The
+            context may contain:
+              - [document] excerpts from PDF files the user uploaded in this
+                conversation — treat these as the primary source when the user
+                asks about an uploaded file.
+              - [memory] long-term memories of the user.
+              - [message] recent messages from this conversation.
+
+            Rules:
+            - Ground your answer in the Retrieved context whenever it is
+              relevant. Quote facts (names, numbers, sections) from the
+              [document] excerpts when answering questions about a PDF.
+            - If the Retrieved context does not contain the answer, say so
+              explicitly instead of guessing.
 
             Relevant memory:
             {memory_context}
@@ -230,23 +291,19 @@ async def chat_stream(
             User question:
             {user_text}
 
-            Planner output:
-            {graph_result.get("planner_output")}
-
-            Retrieved docs:
-            {graph_result.get("retrieval_docs")}
-
-            Reranked docs:
-            {graph_result.get("rerank_docs")}
+            Retrieved context:
+            {_format_context_docs(rerank_docs)}
 
             Tool results:
-            {graph_result.get("tool_results")}
+            {_format_tool_results(graph_result.get("tool_results"))}
 
-            Scratchpad:
-            {graph_result.get("scratchpad")}
+            Reasoning draft:
+            {_format_scratchpad(graph_result.get("scratchpad"))}
 
             Reflection:
-            {graph_result.get("reflection")}
+            {graph_result.get("reflection") or "(none)"}
+
+            {"Note: the user is asking about content from an uploaded PDF — prioritise the [document] excerpts above." if has_pdf_context else ""}
             """
 
         llm = ChatOpenAI(
@@ -325,74 +382,73 @@ async def chat_stream(
     )
 
 @router.post("/{conversation_id}/upload-pdf")
-async def upload_pdf(conversation_id: int, db: DbSession, file: UploadFile = File(...)):
+async def upload_pdf(
+    conversation_id: int,
+    db: DbSession,
+    file: UploadFile = File(...),
+    message: str = Form(default=""),
+):
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,
             detail="Only PDF files allowed"
         )
-    
+
+    pages = document_service.extract_pdf_text(file.file)
+    if not pages:
+        raise HTTPException(
+            status_code=400,
+            detail="PDF contains no text"
+        )
+
+    user_message = (message or "").strip()
+
     try:
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
             role="user",
-            content=f"{file.filename}",
+            content=user_message or f"{file.filename}",
             metadata={
                 "type": "pdf",
-                "filename": file.filename
-            }
+                "filename": file.filename,
+                "message": user_message or None,
+            },
         )
-        
-        pages = document_service.extract_pdf_text(file.file)
-        if not pages:
-            raise HTTPException(
-                status_code=400,
-                detail="PDF contains no text"
-            )
 
-        full_text = ""
-        for page_data in pages:
-            full_text += (
-                page_data["text"] + "\n"
-            )
-
-        pdf_summary = await document_service.summarize_pdf(full_text)
+        full_text = "\n".join(page["text"] for page in pages)
+        pdf_summary = await document_service.summarize_pdf(
+            full_text,
+            user_message=user_message or None,
+        )
 
         total_chunks = 0
         for page_data in pages:
-            page_number = page_data["page"]
-            text = page_data["text"]
-
             chunks = document_service.chunk_page_text(
-                text=text,
-                page=page_number
+                text=page_data["text"],
+                page=page_data["page"],
             )
 
             for chunk in chunks:
-                embedding = await embedding_service.create_embedding(
-                    chunk["content"]
-                )
-
+                embedding = await embedding_service.create_embedding(chunk["content"])
                 await document_service.create_document_chunk(
                     db=db,
                     conversation_id=conversation_id,
                     content=chunk["content"],
                     embedding=embedding,
-                    page=chunk["page"]
+                    page=chunk["page"],
                 )
-
-            total_chunks += 1
+                total_chunks += 1
 
         await chat_service.create_message(
             db=db,
             conversation_id=conversation_id,
             role="assistant",
-            content=(f"{pdf_summary}"),
+            content=f"{pdf_summary}",
             metadata={
                 "type": "pdf_summary",
-                "filename": file.filename
-            }
+                "filename": file.filename,
+            },
         )
 
         return {
@@ -401,8 +457,10 @@ async def upload_pdf(conversation_id: int, db: DbSession, file: UploadFile = Fil
             "chunks": total_chunks,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail=str(e),
         )

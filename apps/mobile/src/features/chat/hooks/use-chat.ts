@@ -311,25 +311,51 @@ export const useChat = () => {
     }
   };
 
-  const uploadPdf = async (file: {
-    uri: string;
-    name: string;
-    mimeType?: string;
-  }) => {
+  const uploadPdf = async (
+    file: {
+      uri: string;
+      name: string;
+      mimeType?: string;
+    },
+    message?: string,
+  ) => {
     if (isSending) {
       return;
     }
     const hideFromRecents = temporaryMode;
     setError(null);
-    setStreamingStatus(null);
+    setStreamingStatus("reading_pdf");
     setIsSending(true);
+
+    const userText = (message ?? "").trim();
+    const optimisticId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const optimisticMessage: ChatMessage = {
+      id: optimisticId,
+      role: "user",
+      content: userText || file.name,
+      createdAt: new Date().toISOString(),
+      metadata: {
+        type: "pdf",
+        filename: file.name,
+        message: userText || null,
+      },
+    };
+
+    const optimisticList: ChatMessage[] = [...messages, optimisticMessage];
+    setMessages(optimisticList);
+    setLastUserMessage(null);
+    setInput("");
+
     try {
       const conversationId = await ensureConversation(hideFromRecents);
-      await uploadConversationPdf(apiClient, conversationId, file);
+      if (!hideFromRecents) {
+        upsertConversation(conversationId, optimisticList);
+      }
+
+      await uploadConversationPdf(apiClient, conversationId, file, message);
       const page = await getConversationMessages(apiClient, conversationId);
       setMessages(page.messages);
       setHasMoreOlderMessages(page.hasMore);
-      setLastUserMessage(null);
       if (!hideFromRecents) {
         upsertConversation(conversationId, page.messages);
         try {
@@ -338,8 +364,10 @@ export const useChat = () => {
           // keep upserted sidebar row if list refresh fails
         }
       }
-      setInput("");
     } catch (uploadError) {
+      setMessages((current) =>
+        current.filter((m) => m.id !== optimisticId),
+      );
       const msg =
         uploadError instanceof Error
           ? uploadError.message
@@ -347,6 +375,7 @@ export const useChat = () => {
       setError(msg);
       throw uploadError instanceof Error ? uploadError : new Error(msg);
     } finally {
+      setStreamingStatus(null);
       setIsSending(false);
     }
   };

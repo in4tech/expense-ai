@@ -242,11 +242,14 @@ export default function ChatScreen() {
           attachmentToSend.name.toLowerCase().endsWith(".pdf"))
       ) {
         try {
-          await uploadPdf({
-            uri: attachmentToSend.uri,
-            name: attachmentToSend.name,
-            mimeType: attachmentToSend.mimeType,
-          });
+          await uploadPdf(
+            {
+              uri: attachmentToSend.uri,
+              name: attachmentToSend.name,
+              mimeType: attachmentToSend.mimeType,
+            },
+            inputToSend,
+          );
         } catch {
           showToast({
             status: "error",

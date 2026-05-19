@@ -1,21 +1,12 @@
-
-
-from langchain_openai import OpenAIEmbeddings
 from app.agents.graph.agent_state import AgentState
+from app.services.compression_service import unified_retrieval
 
-embeddings = OpenAIEmbeddings()
 
-def retrieval_node(state: AgentState):
-    semantic_results = [
-            "LangGraph supports stateful workflows",
-            "Reflection agents improve reasoning quality"
-        ]
-
-    keyboard_results = [
-        "Hybrid retrieval combines vector and BM25"
-    ]
-
-    docs = semantic_results + keyboard_results
-    return {
-        "retrieval_docs": docs
-    }
+async def retrieval_node(state: AgentState):
+    docs = await unified_retrieval(
+        db=state["db"],
+        query=state["user_input"],
+        user_id=state["user_id"],
+        conversation_id=state["conversation_id"],
+    )
+    return {"retrieval_docs": docs}

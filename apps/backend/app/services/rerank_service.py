@@ -15,6 +15,12 @@ def _get_cohere_client() -> cohere.AsyncClient | None:
     return _co_client
 
 
+def _chunk_text(chunk) -> str:
+    if isinstance(chunk, dict):
+        return str(chunk.get("content") or "")
+    return str(getattr(chunk, "content", "") or "")
+
+
 async def rerank_pipeline(
     query,
     chunks,
@@ -27,7 +33,7 @@ async def rerank_pipeline(
     if client is None:
         return list(chunks)[:top_n]
 
-    documents = [chunk.content for chunk in chunks]
+    documents = [_chunk_text(chunk) for chunk in chunks]
     response = await client.rerank(
         model="rerank-english-v3.0",
         query=query,

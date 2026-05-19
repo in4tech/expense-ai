@@ -73,7 +73,12 @@ async def unified_retrieval(
     db: AsyncSession,
     query,
     user_id,
-    conversation_id
+    conversation_id,
+    *,
+    messages_limit: int = 3,
+    memories_limit: int = 3,
+    documents_limit: int = 8,
+    top_n: int = 10,
 ):
     embedding = await create_embedding(query)
 
@@ -82,8 +87,10 @@ async def unified_retrieval(
     # ========================================
     vector_messages = await hybrid_search_messages(
         db=db,
+        query=query,
         conversation_id=conversation_id,
-        embedding=embedding
+        embedding=embedding,
+        limit=messages_limit,
     )
 
     # ========================================
@@ -94,60 +101,64 @@ async def unified_retrieval(
         user_id=user_id,
         embedding=embedding,
         query=query,
+        limit=memories_limit,
     )
 
     # ========================================
-    # DOCUMENTS
+    # DOCUMENTS (uploaded PDFs for this conversation)
     # ========================================
     vector_documents = await hybrid_search_document_chunks(
         db=db,
         conversation_id=conversation_id,
         embedding=embedding,
         query=query,
+        limit=documents_limit,
     )
 
     # ========================================
-    # MERGE
+    # MERGE — documents first so a non-Cohere fallback rerank (which just
+    # slices [:top_n]) still keeps uploaded-PDF chunks instead of discarding
+    # them behind messages + memories.
     # ========================================
-    retrieved_context = []
+    retrieved_context: list[dict] = []
 
-    # MESSAGES
-    [retrieved_context.append({
-        "type": "message",
-        "content": msg.content
-    }) for msg in vector_messages]
+    for chunk in vector_documents:
+        retrieved_context.append({
+            "type": "document",
+            "content": chunk.content,
+        })
 
-    # MEMORIES
-    [retrieved_context.append({
-        "type": "memory",
-        "content": memory["content"],
-    }) for memory in vector_memories]
+    for memory in vector_memories:
+        retrieved_context.append({
+            "type": "memory",
+            "content": memory["content"],
+        })
 
-    # DOCUMENTS
-    [retrieved_context.append({
-        "type": "message",
-        "content": msg.content
-    }) for msg in vector_documents]
+    for msg in vector_messages:
+        retrieved_context.append({
+            "type": "message",
+            "content": msg.content,
+        })
 
     # ========================================
-    # DEDUPLICATE
+    # DEDUPLICATE (preserve first occurrence — documents survive)
     # ========================================
-    seen = set()
-    unique_context = []
-
+    seen: set[str] = set()
+    unique_context: list[dict] = []
     for item in retrieved_context:
-        if item['content'] not in seen:
-            seen.add(item['content'])
-
-            unique_context.append(item)
+        content = (item.get("content") or "").strip()
+        if not content or content in seen:
+            continue
+        seen.add(content)
+        unique_context.append(item)
 
     # ========================================
-    # RERANK CONTEXT
+    # RERANK
     # ========================================
     reranked = await rerank_pipeline(
         query=query,
         chunks=unique_context,
-        top_n=5
+        top_n=top_n,
     )
 
     return reranked

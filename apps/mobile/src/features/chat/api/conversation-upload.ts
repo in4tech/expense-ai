@@ -15,6 +15,7 @@ export const uploadConversationPdf = async (
   client: ApiClient,
   conversationId: string,
   file: UploadPdfFile,
+  message?: string,
 ): Promise<UploadPdfResponse> => {
   const path = apiPaths.conversations.uploadPdf(conversationId);
   const form = new FormData();
@@ -23,6 +24,10 @@ export const uploadConversationPdf = async (
     name: file.name,
     type: file.mimeType || 'application/pdf',
   } as unknown as Blob);
+  const trimmedMessage = (message ?? '').trim();
+  if (trimmedMessage.length > 0) {
+    form.append('message', trimmedMessage);
+  }
 
   const response = await client.request(path, {
     method: 'POST',

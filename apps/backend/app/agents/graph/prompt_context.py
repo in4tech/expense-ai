@@ -134,4 +134,13 @@ def format_tool_results(tool_results: list[dict] | None) -> str:
 def format_rerank_docs(docs: list) -> str:
     if not docs:
         return "(none)"
-    return "\n".join(str(doc) for doc in docs)
+    lines: list[str] = []
+    for doc in docs:
+        if isinstance(doc, dict):
+            label = str(doc.get("type") or "context")
+            body = str(doc.get("content") or "").strip()
+            if body:
+                lines.append(f"[{label}] {body}")
+        else:
+            lines.append(str(doc))
+    return "\n".join(lines) if lines else "(none)"

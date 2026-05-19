@@ -165,7 +165,6 @@ async def persist_turn_memories(
     user_message: str,
     assistant_response: str,
 ) -> int:
-    """Extract and store long-term memories from a user turn + assistant reply."""
     if not user_message.strip():
         return 0
 

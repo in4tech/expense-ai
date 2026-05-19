@@ -1,6 +1,9 @@
 import { StyleSheet } from 'react-native';
 
-import { CHAT_TOP_OVERLAY_INSET } from '@/src/features/chat/constants';
+import {
+  CHAT_TOP_OVERLAY_INSET,
+  CHAT_COMPOSER_INPUT_MAX_HEIGHT_PX,
+} from '@/src/features/chat/constants';
 
 export const chatScreenStyles = StyleSheet.create({
   keyboardContainer: {
@@ -384,13 +387,8 @@ export const chatScreenStyles = StyleSheet.create({
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingLeft: 8,
-    paddingRight: 6,
-    paddingVertical: 6,
+    alignItems: 'flex-end',
+    gap: 8,
   },
   attachButton: {
     width: 38,
@@ -398,6 +396,7 @@ export const chatScreenStyles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'flex-end',
   },
   pickedPreviewRow: {
     alignSelf: 'flex-end',
@@ -437,8 +436,20 @@ export const chatScreenStyles = StyleSheet.create({
   },
   composerInput: {
     flex: 1,
+    minWidth: 0,
     minHeight: 40,
+    maxHeight: CHAT_COMPOSER_INPUT_MAX_HEIGHT_PX,
     fontSize: 15,
+    lineHeight: 22,
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    borderWidth: 1,
+  },
+  composerInputSingleLine: {
+    borderRadius: 999,
+  },
+  composerInputExpanded: {
+    borderRadius: 18,
   },
   primaryButton: {
     backgroundColor: '#8C7AF8',
@@ -447,6 +458,7 @@ export const chatScreenStyles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'flex-end',
   },
   secondaryButton: {
     borderWidth: 1,

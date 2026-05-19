@@ -30,7 +30,12 @@ function ChatFlatListItemImpl({ item, isDark, colors: c }: ChatFlatListItemProps
     item.message.role === 'user' && meta.type === 'pdf' && pdfFilename.trim().length > 0;
 
   if (isUserPdfMessage) {
-    return (
+    const rawMetaMessage = typeof meta.message === 'string' ? meta.message : '';
+    const fallbackContent =
+      item.message.content && item.message.content !== pdfFilename ? item.message.content : '';
+    const userText = (rawMetaMessage || fallbackContent).trim();
+
+    const pdfCard = (
       <View
         style={[
           styles.pickedPreviewRow,
@@ -41,7 +46,8 @@ function ChatFlatListItemImpl({ item, isDark, colors: c }: ChatFlatListItemProps
             borderColor: isDark ? 'rgba(140,122,248,0.36)' : '#D8CCFF',
           },
         ]}>
-        <View style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
+        <View
+          style={[styles.pickedDocIcon, { backgroundColor: c.inputRowBg, borderColor: c.inputRowBorder }]}>
           <Ionicons name="document-text-outline" size={22} color={c.topIcon} />
         </View>
         <View style={styles.pickedPreviewMeta}>
@@ -50,6 +56,29 @@ function ChatFlatListItemImpl({ item, isDark, colors: c }: ChatFlatListItemProps
           </ThemedText>
           <ThemedText numberOfLines={1} style={[styles.pickedKindLabel, { color: c.textMuted }]}>
             PDF
+          </ThemedText>
+        </View>
+      </View>
+    );
+
+    if (userText.length === 0) {
+      return pdfCard;
+    }
+
+    return (
+      <View style={{ alignSelf: 'stretch', gap: 6 }}>
+        {pdfCard}
+        <View
+          style={[
+            styles.messageBubble,
+            {
+              alignSelf: 'flex-end',
+              borderColor: c.userBubbleBorder,
+              backgroundColor: c.userBubbleBg,
+            },
+          ]}>
+          <ThemedText style={[styles.messageContent, { color: c.bubbleUserText }]}>
+            {userText}
           </ThemedText>
         </View>
       </View>
