@@ -26,6 +26,7 @@ export default function MainStackLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="dev-settings" />
+      <Stack.Screen name="profile" />
     </Stack>
   );
 }

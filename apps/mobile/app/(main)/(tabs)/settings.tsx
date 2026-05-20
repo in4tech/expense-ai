@@ -84,6 +84,11 @@ export default function SettingsScreen() {
     router.push(href.mainDevSettings);
   }, [router]);
 
+  const onOpenProfile = useCallback(() => {
+    void Haptics.selectionAsync();
+    router.push(href.mainProfile);
+  }, [router]);
+
   const onLogout = useCallback(() => {
     void Haptics.selectionAsync();
     setLogoutSheetOpen(true);
@@ -124,7 +129,7 @@ export default function SettingsScreen() {
           <SettingsRow
             icon="person-outline"
             label={dictionary.settings.profileDetails}
-            onPress={comingSoon}
+            onPress={onOpenProfile}
             dividerColor={c.divider}
             textColor={c.text}
             chevronColor={c.chevron}

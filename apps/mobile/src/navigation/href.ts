@@ -7,4 +7,5 @@ export const href = {
   mainChat: "/(main)/(tabs)/chat" as Href,
   mainSettings: "/(main)/(tabs)/settings" as Href,
   mainDevSettings: "/(main)/dev-settings" as Href,
+  mainProfile: "/(main)/profile" as Href,
 };

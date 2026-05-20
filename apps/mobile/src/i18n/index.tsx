@@ -102,6 +102,32 @@ type Dictionary = {
     logoutConfirmMessage: string;
     logoutSuccess: string;
   };
+  profile: {
+    title: string;
+    email: string;
+    username: string;
+    usernamePlaceholder: string;
+    bio: string;
+    bioPlaceholder: string;
+    phone: string;
+    countryCode: string;
+    phoneNumber: string;
+    selectCountryCode: string;
+    searchCountry: string;
+    noCountryResults: string;
+    phonePlaceholder: string;
+    address: string;
+    addressPlaceholder: string;
+    birthDate: string;
+    day: string;
+    month: string;
+    year: string;
+    changeAvatar: string;
+    save: string;
+    saveSuccess: string;
+    saveFailed: string;
+    avatarPermissionDenied: string;
+  };
   devSettings: {
     title: string;
     showSampleToast: string;
