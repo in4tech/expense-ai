@@ -15,7 +15,7 @@ export default function Index() {
     );
   }
 
-  return <Redirect href={isAuthenticated ? href.mainChat : href.authSignIn} />;
+  return <Redirect href={isAuthenticated ? href.mainHome : href.authSignIn} />;
 }
 
 const styles = StyleSheet.create({

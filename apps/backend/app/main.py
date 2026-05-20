@@ -3,15 +3,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.conversations.router import router as conversations_router
 from app.api.authentication.router import router as authentication_router
+from app.api.housings.router import router as housings_router
 
 from app.db.base import Base
-from app.db.models import (  # noqa: F401 — register tables
+from app.db.models import (  # noqa: F401 - register SQLAlchemy tables
     Conversation,
     DocumentChunk,
+    Housing,
     Memory,
     Message,
+    Room,
     User,
 )
+
 from app.db.schema_patch import ensure_pgvector_extension
 from app.db.session import engine
 
@@ -34,3 +38,4 @@ async def startup():
 
 app.include_router(conversations_router, prefix="/conversations", tags=["Conversations"])
 app.include_router(authentication_router, prefix="/auth", tags=["Authentication"])
+app.include_router(housings_router, prefix="/housings", tags=["Housings"])

@@ -8,4 +8,7 @@ export const href = {
   mainSettings: "/(main)/(tabs)/settings" as Href,
   mainDevSettings: "/(main)/dev-settings" as Href,
   mainProfile: "/(main)/profile" as Href,
+  mainHome: "/(main)/(tabs)/home" as Href,
+  mainHousingPredict: "/(main)/housing-predict" as Href,
+  mainMapPickLocation: "/(main)/map-pick-location" as Href,
 };

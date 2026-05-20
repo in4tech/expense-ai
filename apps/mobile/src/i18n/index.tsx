@@ -7,8 +7,59 @@ type Language = 'en' | 'vn';
 
 type Dictionary = {
   tabs: {
+    home: string;
     chat: string;
     settings: string;
+  };
+  home: {
+    title: string;
+    loading: string;
+    loadFailed: string;
+    retry: string;
+    empty: string;
+    untitledHousing: string;
+    roomCodeLabel: string;
+    noAddress: string;
+    electricityFee: string;
+    waterFee: string;
+    parkingFee: string;
+    garbageFee: string;
+    wifiAvailable: string;
+    wifiUnknown: string;
+  };
+  housingPredict: {
+    title: string;
+    heroTitle: string;
+    heroDesc: string;
+    inputTitle: string;
+    inputSubtitle: string;
+    resultTitle: string;
+    resultEmpty: string;
+    resultHint: string;
+    insightTitle: string;
+    insightPrefix: string;
+    insightSegmentBudget: string;
+    insightSegmentMidHigh: string;
+    predictButton: string;
+    addressTapHint: string;
+    fields: {
+      medInc: { label: string; unit: string };
+      houseAge: { label: string; unit: string };
+      aveRooms: { label: string; unit: string };
+      aveBedrms: { label: string; unit: string };
+      population: { label: string; unit: string };
+      aveOccup: { label: string; unit: string };
+      address: { label: string; unit: string };
+    };
+  };
+  mapPickLocation: {
+    title: string;
+    searchPlaceholder: string;
+    webFallback: string;
+    selectedLabel: string;
+    noSelection: string;
+    hintTapMap: string;
+    confirm: string;
   };
   chat: {
     title: string;

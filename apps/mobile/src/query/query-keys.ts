@@ -18,4 +18,9 @@ export const queryKeys = {
         limit ?? "default",
       ] as const,
   },
+  housings: {
+    all: ["housings"] as const,
+    list: (apiBaseUrl: string, limit: number, offset: number) =>
+      [...queryKeys.housings.all, "list", apiBaseUrl, limit, offset] as const,
+  },
 };

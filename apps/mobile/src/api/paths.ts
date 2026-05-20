@@ -4,6 +4,7 @@
  * - Add new top-level groups (e.g. `auth`, `user`) as features are added.
  */
 const conversationsRoot = "/conversations";
+const housingsRoot = "/housings";
 
 export const apiPaths = {
   auth: {
@@ -29,5 +30,8 @@ export const apiPaths = {
       `${conversationsRoot}/${conversationId}/assistant`,
     uploadPdf: (conversationId: string) =>
       `${conversationsRoot}/${encodeURIComponent(conversationId)}/upload-pdf`,
+  },
+  housings: {
+    root: housingsRoot,
   },
 } as const;
