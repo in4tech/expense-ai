@@ -11,4 +11,5 @@ export const href = {
   mainHome: "/(main)/(tabs)/home" as Href,
   mainHousingPredict: "/(main)/housing-predict" as Href,
   mainMapPickLocation: "/(main)/map-pick-location" as Href,
+  mainHouseDetail: (housingId: string) => `/(main)/house-detail/${housingId}` as Href,
 };

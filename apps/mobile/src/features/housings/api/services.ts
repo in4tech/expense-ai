@@ -1,6 +1,6 @@
 import { apiPaths, type ApiClient } from "@/src/api";
 
-import type { Housing, HousingListResponse } from "@/src/features/housings/types";
+import type { Housing, HousingDetail, HousingDetailResponse, HousingListResponse, RoomDetail } from "@/src/features/housings/types";
 
 const toNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -62,6 +62,99 @@ const parseHousingRow = (row: unknown): Housing => {
   };
 };
 
+const parseHousingDetail = (row: unknown): HousingDetail => {
+  if (!row || typeof row !== "object") {
+    return {
+      id: "",
+      electricity_unit: null,
+      water_unit: null,
+      otherfee: null,
+      parking_unit: null,
+      room_code: null,
+      room_id: null,
+      price: null,
+      house_name: null,
+      is_allow_electric_car: null,
+      electricity_fee: null,
+      water_fee: null,
+      card_fee: null,
+      washing_machine_fee: null,
+      parking_fee: null,
+      garbage_fee: null,
+      card_unit: null,
+      garbage_unit: null,
+      has_wifi: null,
+      address: null,
+      amenities: null,
+      last_update: null,
+      created_at: null,
+      updated_at: null,
+    };
+  }
+  const item = row as Record<string, unknown>;
+  return {
+    id: String(item.id ?? ""),
+    electricity_unit: toNullableString(item.electricity_unit),
+    water_unit: toNullableString(item.water_unit),
+    otherfee: toNullableNumber(item.otherfee),
+    parking_unit: toNullableString(item.parking_unit),
+    room_code: toNullableString(item.room_code),
+    room_id: toNullableString(item.room_id),
+    price: toNullableNumber(item.price),
+    house_name: toNullableString(item.house_name),
+    is_allow_electric_car: toNullableString(item.is_allow_electric_car),
+    electricity_fee: toNullableNumber(item.electricity_fee),
+    water_fee: toNullableNumber(item.water_fee),
+    card_fee: toNullableNumber(item.card_fee),
+    washing_machine_fee: toNullableNumber(item.washing_machine_fee),
+    parking_fee: toNullableNumber(item.parking_fee),
+    garbage_fee: toNullableNumber(item.garbage_fee),
+    card_unit: toNullableString(item.card_unit),
+    garbage_unit: toNullableString(item.garbage_unit),
+    has_wifi: toNullableBoolean(item.has_wifi),
+    address: toNullableString(item.address),
+    amenities: item.amenities ?? null,
+    last_update: toNullableString(item.last_update),
+    created_at: toNullableString(item.created_at),
+    updated_at: toNullableString(item.updated_at),
+  };
+};
+
+const parseRoomDetail = (row: unknown): RoomDetail | null => {
+  if (!row || typeof row !== "object") return null;
+  const item = row as Record<string, unknown>;
+  return {
+    id: String(item.id ?? ""),
+    kitchen: toNullableBoolean(item.kitchen),
+    desk: toNullableBoolean(item.desk),
+    bed: toNullableBoolean(item.bed),
+    elevator: toNullableBoolean(item.elevator),
+    tivi: toNullableBoolean(item.tivi),
+    mattress: toNullableBoolean(item.mattress),
+    cooling_type: toNullableString(item.cooling_type),
+    pet: toNullableBoolean(item.pet),
+    parking_space: toNullableString(item.parking_space),
+    toilet: toNullableString(item.toilet),
+    time: toNullableString(item.time),
+    gatelock: toNullableString(item.gatelock),
+    room_area: toNullableString(item.room_area),
+    bancony: toNullableBoolean(item.bancony),
+    fridge: toNullableBoolean(item.fridge),
+    washer: toNullableBoolean(item.washer),
+    hotwater: toNullableBoolean(item.hotwater),
+    air_conditioner: toNullableBoolean(item.air_conditioner),
+    kitchent_sink: toNullableBoolean(item.kitchent_sink),
+    window: toNullableBoolean(item.window),
+    drying_yard: toNullableString(item.drying_yard),
+    wardrobe: toNullableBoolean(item.wardrobe),
+    floor: toNullableString(item.floor),
+    skylight: toNullableBoolean(item.skylight),
+    attic: toNullableBoolean(item.attic),
+    created_at: toNullableString(item.created_at),
+    updated_at: toNullableString(item.updated_at),
+  };
+};
+
 export const listHousings = async (
   client: ApiClient,
   limit = 40,
@@ -93,5 +186,22 @@ export const listHousings = async (
       typeof (payload as { offset?: unknown }).offset === "number"
         ? (payload as unknown as { offset: number }).offset
         : offset,
+  };
+};
+
+export const getHousingById = async (client: ApiClient, housingId: string): Promise<HousingDetailResponse> => {
+  const path = apiPaths.housings.byId(housingId);
+  const payload = await client.get<unknown>(path, "Housing detail failed");
+
+  if (!payload || typeof payload !== "object" || !("housing" in payload)) {
+    throw new Error("Invalid housing detail response.");
+  }
+
+  const housingRaw = (payload as { housing: unknown }).housing;
+  const roomRaw = (payload as { room?: unknown }).room;
+
+  return {
+    housing: parseHousingDetail(housingRaw),
+    room: roomRaw == null ? null : parseRoomDetail(roomRaw),
   };
 };

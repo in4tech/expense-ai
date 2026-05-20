@@ -22,5 +22,7 @@ export const queryKeys = {
     all: ["housings"] as const,
     list: (apiBaseUrl: string, limit: number, offset: number) =>
       [...queryKeys.housings.all, "list", apiBaseUrl, limit, offset] as const,
+    detail: (apiBaseUrl: string, housingId: string) =>
+      [...queryKeys.housings.all, "detail", apiBaseUrl, housingId] as const,
   },
 };

@@ -26,6 +26,7 @@ type Dictionary = {
     garbageFee: string;
     wifiAvailable: string;
     wifiUnknown: string;
+    viewDetails: string;
   };
   housingPredict: {
     title: string;
@@ -60,6 +61,65 @@ type Dictionary = {
     noSelection: string;
     hintTapMap: string;
     confirm: string;
+  };
+  houseDetail: {
+    title: string;
+    loading: string;
+    loadFailed: string;
+    retry: string;
+    sectionOverview: string;
+    sectionProperty: string;
+    sectionRoom: string;
+    noRoom: string;
+    rentLabel: string;
+    contactForPrice: string;
+    yes: string;
+    no: string;
+    unknown: string;
+    meta: {
+      otherFee: string;
+      cardFee: string;
+      washingFee: string;
+      electricityUnit: string;
+      waterUnit: string;
+      parkingUnit: string;
+      cardUnit: string;
+      garbageUnit: string;
+      evCharging: string;
+      lastUpdate: string;
+      createdAt: string;
+      updatedAt: string;
+      roomLink: string;
+    };
+    roomStrings: {
+      cooling_type: string;
+      parking_space: string;
+      toilet: string;
+      time: string;
+      gatelock: string;
+      room_area: string;
+      drying_yard: string;
+      floor: string;
+    };
+    roomBool: {
+      kitchen: string;
+      desk: string;
+      bed: string;
+      elevator: string;
+      tivi: string;
+      mattress: string;
+      pet: string;
+      bancony: string;
+      fridge: string;
+      washer: string;
+      hotwater: string;
+      air_conditioner: string;
+      kitchent_sink: string;
+      window: string;
+      wardrobe: string;
+      skylight: string;
+      attic: string;
+    };
   };
   chat: {
     title: string;

@@ -104,9 +104,16 @@ export default function HomeScreen() {
               {item.has_wifi ? dictionary.home.wifiAvailable : dictionary.home.wifiUnknown}
             </ThemedText>
           </View>
-          <ThemedText style={[styles.footerHint, { color: c.hint }]}>
-            ID: {item.id.slice(0, 8)}
-          </ThemedText>
+          <Pressable
+            onPress={() => router.push(href.mainHouseDetail(item.id))}
+            style={styles.detailsPressable}
+            hitSlop={8}
+          >
+            <ThemedText style={[styles.detailsText, { color: c.primary }]}>
+              {dictionary.home.viewDetails}
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={14} color={c.primary} />
+          </Pressable>
         </View>
       </View>
     );
@@ -125,16 +132,6 @@ export default function HomeScreen() {
           >
             <Ionicons name="sparkles-outline" size={18} color={c.primary} />
           </Pressable>
-          {/* <Pressable
-            onPress={() => void refetch()}
-            style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
-          >
-            <Ionicons
-              name={isRefetching ? "sync" : "refresh"}
-              size={18}
-              color={c.primary}
-            />
-          </Pressable> */}
         </View>
       </View>
 
@@ -259,6 +256,8 @@ const styles = StyleSheet.create({
   footerItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   footerText: { fontSize: 12 },
   footerHint: { fontSize: 11, fontWeight: "500" },
+  detailsPressable: { flexDirection: "row", alignItems: "center", gap: 2 },
+  detailsText: { fontSize: 13, fontWeight: "700" },
   centerState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 16 },
   stateText: { fontSize: 14, textAlign: "center" },
   retryBtn: {

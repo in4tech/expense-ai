@@ -29,6 +29,7 @@ export default function MainStackLayout() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="housing-predict" />
       <Stack.Screen name="map-pick-location" />
+      <Stack.Screen name="house-detail/[id]" />
     </Stack>
   );
 }

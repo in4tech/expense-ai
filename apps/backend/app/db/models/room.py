@@ -36,7 +36,6 @@ class Room(Base):
     floor = Column(String, nullable=True)
     skylight = Column(Boolean, nullable=True)
     attic = Column(Boolean, nullable=True)
-    security_guard = Column(Boolean, nullable=True)
     housings = relationship("Housing", back_populates="room")
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import { type ApiClient } from "@/src/api";
-import { listHousings } from "@/src/features/housings/api/services";
+import { getHousingById, listHousings } from "@/src/features/housings/api/services";
 import { queryKeys } from "@/src/query/query-keys";
 
 export const housingsListQueryOptions = (
@@ -12,4 +12,11 @@ export const housingsListQueryOptions = (
   queryOptions({
     queryKey: queryKeys.housings.list(client.baseUrl, limit, offset),
     queryFn: () => listHousings(client, limit, offset),
+  });
+
+export const housingDetailQueryOptions = (client: ApiClient, housingId: string) =>
+  queryOptions({
+    queryKey: queryKeys.housings.detail(client.baseUrl, housingId),
+    queryFn: () => getHousingById(client, housingId),
+    enabled: Boolean(housingId),
   });
