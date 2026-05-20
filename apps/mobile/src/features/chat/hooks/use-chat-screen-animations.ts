@@ -2,13 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing } from "react-native";
 
 export type UseChatScreenAnimationsOptions = {
-  hasMessages: boolean;
   temporaryMode: boolean;
 };
 
 export type UseChatScreenAnimationsResult = {
-  pulseAnim: Animated.Value;
-  iconPulseAnim: Animated.Value;
   heroOpacityRegular: Animated.AnimatedInterpolation<number>;
   heroOpacityTemporary: Animated.AnimatedInterpolation<number>;
   heroTranslateRegular: Animated.AnimatedInterpolation<number>;
@@ -20,15 +17,10 @@ export type UseChatScreenAnimationsResult = {
   closeHistoryDrawer: () => void;
 };
 
-/**
- * Hero crossfade, empty-state orb pulse, and history drawer slide for the chat screen.
- */
+/** Hero crossfade and history drawer slide for the chat screen. */
 export function useChatScreenAnimations({
-  hasMessages,
   temporaryMode,
 }: UseChatScreenAnimationsOptions): UseChatScreenAnimationsResult {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const iconPulseAnim = useRef(new Animated.Value(1)).current;
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
   const heroBlendRef = useRef<Animated.Value | null>(null);
@@ -78,60 +70,6 @@ export function useChatScreenAnimations({
     }).start();
   }, [temporaryMode, heroBlend]);
 
-  useEffect(() => {
-    if (hasMessages) {
-      pulseAnim.stopAnimation();
-      iconPulseAnim.stopAnimation();
-      return undefined;
-    }
-
-    pulseAnim.setValue(1);
-    iconPulseAnim.setValue(1);
-
-    const orbLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.1,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 700,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    const iconLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(iconPulseAnim, {
-          toValue: 1.12,
-          duration: 520,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(iconPulseAnim, {
-          toValue: 1,
-          duration: 520,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    orbLoop.start();
-    iconLoop.start();
-    return () => {
-      orbLoop.stop();
-      iconLoop.stop();
-      pulseAnim.stopAnimation();
-      iconPulseAnim.stopAnimation();
-    };
-  }, [hasMessages, pulseAnim, iconPulseAnim]);
-
   const drawerTranslateX = drawerAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-340, 0],
@@ -160,8 +98,6 @@ export function useChatScreenAnimations({
   });
 
   return {
-    pulseAnim,
-    iconPulseAnim,
     heroOpacityRegular,
     heroOpacityTemporary,
     heroTranslateRegular,

@@ -1,5 +1,4 @@
 import { Animated, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/themed-text";
 import { chatScreenStyles as styles } from "@/src/features/chat/styles";
@@ -12,8 +11,6 @@ export type ChatEmptyStateProps = {
   heroOpacityTemporary: Animated.AnimatedInterpolation<number>;
   heroTranslateRegular: Animated.AnimatedInterpolation<number>;
   heroTranslateTemporary: Animated.AnimatedInterpolation<number>;
-  pulseAnim: Animated.Value;
-  iconPulseAnim: Animated.Value;
   copy: {
     emptyTitle: string;
     emptyBody: string;
@@ -22,7 +19,7 @@ export type ChatEmptyStateProps = {
   };
 };
 
-/** Hero copy crossfade + decorative orb when there are no messages yet. */
+/** Hero copy crossfade when there are no messages yet. */
 export function ChatEmptyState({
   temporaryMode,
   colors: c,
@@ -30,8 +27,6 @@ export function ChatEmptyState({
   heroOpacityTemporary,
   heroTranslateRegular,
   heroTranslateTemporary,
-  pulseAnim,
-  iconPulseAnim,
   copy,
 }: ChatEmptyStateProps) {
   return (
@@ -103,40 +98,6 @@ export function ChatEmptyState({
             {copy.temporaryChatBody}
           </ThemedText>
         </Animated.View>
-      </View>
-
-      <View
-        style={[
-          styles.orbContainer,
-          temporaryMode && styles.orbContainerHidden,
-        ]}
-        pointerEvents={temporaryMode ? "none" : "auto"}
-        accessibilityElementsHidden={temporaryMode}
-        importantForAccessibility={
-          temporaryMode ? "no-hide-descendants" : "auto"
-        }
-      >
-        <Animated.View
-          style={[
-            styles.orbOuter,
-            { backgroundColor: c.orbOuter, transform: [{ scale: pulseAnim }] },
-          ]}
-        />
-        <Animated.View
-          style={[
-            styles.orbInner,
-            { backgroundColor: c.orbInner, transform: [{ scale: pulseAnim }] },
-          ]}
-        />
-        <View style={styles.orbIconCenter} pointerEvents="none">
-          <Animated.View style={{ transform: [{ scale: iconPulseAnim }] }}>
-            <MaterialCommunityIcons
-              name="robot-outline"
-              size={40}
-              color={c.robotIcon}
-            />
-          </Animated.View>
-        </View>
       </View>
     </View>
   );

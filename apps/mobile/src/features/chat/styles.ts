@@ -216,10 +216,6 @@ export const chatScreenStyles = StyleSheet.create({
     maxWidth: "90%",
     fontSize: 16,
   },
-  heroState: {
-    paddingBottom: 10,
-    gap: 12,
-  },
   heroTitle: {
     fontSize: 52,
     lineHeight: 56,
@@ -230,50 +226,6 @@ export const chatScreenStyles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 26,
     maxWidth: "90%",
-  },
-  orbContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 18,
-    height: 250,
-  },
-  /** Keep orb mounted so scale animations stay bound to native views after toggling temporary mode. */
-  orbContainerHidden: {
-    height: 0,
-    marginVertical: 0,
-    opacity: 0,
-    overflow: "hidden",
-  },
-  orbOuter: {
-    position: "absolute",
-    width: 132,
-    height: 132,
-    borderRadius: 66,
-    opacity: 0.45,
-  },
-  orbInner: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    opacity: 0.65,
-  },
-  orbIconCenter: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickPromptList: {
-    gap: 10,
-    paddingHorizontal: 2,
-  },
-  quickPromptChip: {
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderWidth: 1,
-  },
-  quickPromptText: {
-    fontSize: 14,
   },
   footerHint: {
     fontSize: 14,

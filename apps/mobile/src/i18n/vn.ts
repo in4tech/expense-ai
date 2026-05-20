@@ -65,10 +65,12 @@ export const vn = {
     reportAckTitle: 'Báo cáo',
     reportAckMessage: 'Cảm ơn bạn. Báo cáo đầy đủ trong app sẽ được bổ sung sau; cần hỗ trợ hãy liên hệ bộ phận hỗ trợ.',
     shareFailed: 'Không mở được bảng chia sẻ.',
+    quickPromptsTitle: 'Gợi ý nhanh',
     quickPrompts: [
-      'Cho mình mẹo tiết kiệm chi tiêu hàng tháng.',
-      'Gợi ý cách phân chia ngân sách theo 50/30/20.',
-      'Làm sao để theo dõi các khoản chi nhỏ mỗi ngày?',
+      'Gợi ý thói quen nhỏ để cân bằng công việc và đời sống khi bận cả tuần.',
+      'Giải thích đơn giản: lạm phát là gì và vì sao giá hàng tăng?',
+      'Tóm tắt ngắn các chủ đề chính trị đang được quan tâm gần đây.',
+      'Dự báo thời tiết cuối tuần này ở TP.HCM — nên mang ô hay mặc nhẹ?',
     ],
   },
   settings: {

@@ -66,6 +66,7 @@ type Dictionary = {
     reportAckTitle: string;
     reportAckMessage: string;
     shareFailed: string;
+    quickPromptsTitle: string;
     quickPrompts: readonly string[];
   };
   settings: {

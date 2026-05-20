@@ -98,8 +98,6 @@ export default function ChatScreen() {
   });
 
   const {
-    pulseAnim,
-    iconPulseAnim,
     heroOpacityRegular,
     heroOpacityTemporary,
     heroTranslateRegular,
@@ -109,7 +107,7 @@ export default function ChatScreen() {
     backdropOpacity,
     openHistoryDrawer,
     closeHistoryDrawer,
-  } = useChatScreenAnimations({ hasMessages, temporaryMode });
+  } = useChatScreenAnimations({ temporaryMode });
 
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
 
@@ -488,8 +486,6 @@ export default function ChatScreen() {
                 heroOpacityTemporary={heroOpacityTemporary}
                 heroTranslateRegular={heroTranslateRegular}
                 heroTranslateTemporary={heroTranslateTemporary}
-                pulseAnim={pulseAnim}
-                iconPulseAnim={iconPulseAnim}
                 copy={{
                   emptyTitle: dictionary.chat.emptyTitle,
                   emptyBody: dictionary.chat.emptyBody,
@@ -519,6 +515,7 @@ export default function ChatScreen() {
             {!hasMessages ? (
               <ChatQuickPrompts
                 prompts={dictionary.chat.quickPrompts}
+                sectionTitle={dictionary.chat.quickPromptsTitle}
                 colors={c}
                 onSelectPrompt={handleSelectQuickPrompt}
               />

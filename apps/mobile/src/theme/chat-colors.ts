@@ -7,9 +7,6 @@ export type ChatThemeColors = {
   topActionBg: string;
   heroTitle: string;
   heroBody: string;
-  orbOuter: string;
-  orbInner: string;
-  robotIcon: string;
   quickChipBg: string;
   quickChipBorder: string;
   quickChipText: string;
@@ -50,9 +47,6 @@ export function getChatThemeColors(isDark: boolean): ChatThemeColors {
     topActionBg: isDark ? "#2C2C2E" : "#ECE6F7",
     heroTitle: isDark ? "#F2F2F7" : "#2A2339",
     heroBody: isDark ? "#AEAEB2" : "#7B758D",
-    orbOuter: isDark ? "#3A2F5C" : "#E8DFFB",
-    orbInner: isDark ? "#5C4BA3" : "#C8BCF8",
-    robotIcon: isDark ? "#C4B5F8" : "#4A3F86",
     quickChipBg: isDark ? "#2C2C2E" : "#EFE9FB",
     quickChipBorder: isDark ? "#48484A" : "#E3DBF7",
     quickChipText: isDark ? "#E5E5EA" : "#4E4761",

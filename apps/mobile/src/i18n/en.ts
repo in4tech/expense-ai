@@ -65,10 +65,12 @@ export const en = {
     reportAckTitle: 'Report',
     reportAckMessage: 'Thank you. Full in-app reporting is not wired yet; contact support if you need help.',
     shareFailed: 'Could not open the share sheet.',
+    quickPromptsTitle: 'Try asking',
     quickPrompts: [
-      'Give me tips to save money each month.',
-      'Suggest a budget split using the 50/30/20 rule.',
-      'How can I track small daily expenses?',
+      'Small habits to balance work and personal life when the week is packed.',
+      'Explain inflation in simple terms — why do everyday prices keep rising?',
+      'Brief overview of political topics that have been in the news lately.',
+      'What is the weather forecast for this weekend — umbrella or light clothes?',
     ],
   },
   settings: {
