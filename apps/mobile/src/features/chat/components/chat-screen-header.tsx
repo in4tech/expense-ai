@@ -1,8 +1,8 @@
-import { Pressable, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatScreenHeaderProps = {
   colors: ChatThemeColors;
@@ -46,8 +46,14 @@ export function ChatScreenHeader({
   }
 
   return (
-    <View style={[styles.topBar, styles.topBarOverlay]} pointerEvents="box-none">
-      <Pressable style={[styles.topActionButton, { backgroundColor: c.topActionBg }]} onPress={handleOpenHistoryPress}>
+    <View
+      style={[styles.topBar, styles.topBarOverlay]}
+      pointerEvents="box-none"
+    >
+      <Pressable
+        style={[styles.topActionButton, { backgroundColor: c.topActionBg }]}
+        onPress={handleOpenHistoryPress}
+      >
         <Ionicons name="menu-outline" size={24} color={c.topIcon} />
       </Pressable>
       <View style={styles.topActions}>
@@ -56,16 +62,28 @@ export function ChatScreenHeader({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={labels.newChatA11y}
-              style={[styles.topActionButton, { backgroundColor: c.topActionBg }]}
-              onPress={handleNewChatPress}>
+              style={[
+                styles.topActionButton,
+                { backgroundColor: c.topActionBg },
+              ]}
+              onPress={handleNewChatPress}
+            >
               <Ionicons name="add" size={26} color={c.topIcon} />
             </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={labels.moreMenuA11y}
-              style={[styles.topActionButton, { backgroundColor: c.topActionBg }]}
-              onPress={handleToggleMoreMenuPress}>
-              <Ionicons name="ellipsis-horizontal" size={22} color={c.topIcon} />
+              style={[
+                styles.topActionButton,
+                { backgroundColor: c.topActionBg },
+              ]}
+              onPress={handleToggleMoreMenuPress}
+            >
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={22}
+                color={c.topIcon}
+              />
             </Pressable>
           </>
         ) : (
@@ -75,9 +93,13 @@ export function ChatScreenHeader({
             style={[
               styles.topActionButton,
               { backgroundColor: c.topActionBg },
-              temporaryMode && { borderWidth: 2, borderColor: c.historyItemActiveBorder },
+              temporaryMode && {
+                borderWidth: 2,
+                borderColor: c.historyItemActiveBorder,
+              },
             ]}
-            onPress={handleTemporaryChatPress}>
+            onPress={handleTemporaryChatPress}
+          >
             <Ionicons name="flash-outline" size={24} color={c.topIcon} />
           </Pressable>
         )}

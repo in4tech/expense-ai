@@ -1,8 +1,8 @@
-import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { ThemedText } from "@/components/themed-text";
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatComposerStatusProps = {
   isSending: boolean;
@@ -27,7 +27,9 @@ export function ChatComposerStatus({
       {isSending ? (
         <View style={styles.typingState}>
           <ActivityIndicator size="small" color={c.typing} />
-          <ThemedText style={[styles.typingText, { color: c.typing }]}>{typingStatusText}</ThemedText>
+          <ThemedText style={[styles.typingText, { color: c.typing }]}>
+            {typingStatusText}
+          </ThemedText>
         </View>
       ) : null}
 
@@ -36,9 +38,15 @@ export function ChatComposerStatus({
           style={[
             styles.errorBox,
             { borderColor: c.errorBorder, backgroundColor: c.errorBg },
-          ]}>
-          <ThemedText style={[styles.errorText, { color: c.errorText }]}>{error}</ThemedText>
-          <Pressable style={[styles.secondaryButton, { borderColor: c.secondaryBorder }]} onPress={onRetry}>
+          ]}
+        >
+          <ThemedText style={[styles.errorText, { color: c.errorText }]}>
+            {error}
+          </ThemedText>
+          <Pressable
+            style={[styles.secondaryButton, { borderColor: c.secondaryBorder }]}
+            onPress={onRetry}
+          >
             <ThemedText type="defaultSemiBold">{retryLabel}</ThemedText>
           </Pressable>
         </View>

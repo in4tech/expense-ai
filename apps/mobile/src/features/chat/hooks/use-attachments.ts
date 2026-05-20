@@ -1,9 +1,9 @@
-import * as DocumentPicker from 'expo-document-picker';
-import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { useCallback, useState } from "react";
+import { Alert } from "react-native";
 
-import type { PickedAttachment } from '@/src/features/chat/compose-attachment-message';
+import type { PickedAttachment } from "@/src/features/chat/compose-attachment-message";
 
 type ChatDictionarySlice = {
   pickFileFailed: string;
@@ -20,7 +20,8 @@ export function useChatScreenAttachments(options: {
   startNewConversation: () => void;
 }) {
   const { isSending, chat, startNewConversation } = options;
-  const [pickedAttachment, setPickedAttachment] = useState<PickedAttachment | null>(null);
+  const [pickedAttachment, setPickedAttachment] =
+    useState<PickedAttachment | null>(null);
   const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false);
 
   const closeAttachmentPicker = useCallback(() => {
@@ -39,18 +40,18 @@ export function useChatScreenAttachments(options: {
       const result = await DocumentPicker.getDocumentAsync({
         copyToCacheDirectory: true,
         multiple: false,
-        type: 'application/pdf',
+        type: "application/pdf",
       });
       if (result.canceled) return;
       const asset = result.assets[0];
       setPickedAttachment({
         uri: asset.uri,
         name: asset.name,
-        kind: 'document',
+        kind: "document",
         mimeType: asset.mimeType ?? undefined,
       });
     } catch {
-      Alert.alert('', chat.pickFileFailed);
+      Alert.alert("", chat.pickFileFailed);
     }
   }, [isSending, chat.pickFileFailed]);
 
@@ -59,25 +60,25 @@ export function useChatScreenAttachments(options: {
     try {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('', chat.pickImagePermissionDenied);
+        Alert.alert("", chat.pickImagePermissionDenied);
         return;
       }
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
+        mediaTypes: ["images"],
         allowsEditing: false,
         quality: 0.85,
       });
       if (result.canceled) return;
       const asset = result.assets[0];
-      const name = asset.fileName ?? 'photo.jpg';
+      const name = asset.fileName ?? "photo.jpg";
       setPickedAttachment({
         uri: asset.uri,
         name,
-        kind: 'image',
-        mimeType: asset.mimeType ?? 'image/jpeg',
+        kind: "image",
+        mimeType: asset.mimeType ?? "image/jpeg",
       });
     } catch {
-      Alert.alert('', chat.pickImageFailed);
+      Alert.alert("", chat.pickImageFailed);
     }
   }, [isSending, chat.pickImageFailed, chat.pickImagePermissionDenied]);
 

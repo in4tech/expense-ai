@@ -365,9 +365,7 @@ export const useChat = () => {
         }
       }
     } catch (uploadError) {
-      setMessages((current) =>
-        current.filter((m) => m.id !== optimisticId),
-      );
+      setMessages((current) => current.filter((m) => m.id !== optimisticId));
       const msg =
         uploadError instanceof Error
           ? uploadError.message

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -6,11 +6,11 @@ import {
   View,
   type NativeSyntheticEvent,
   type TextInputContentSizeChangeEventData,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatComposerInputRowProps = {
   colors: ChatThemeColors;
@@ -61,7 +61,8 @@ export function ChatComposerInputRow({
         onPress={onOpenAttachmentMenu}
         disabled={isSending}
         hitSlop={10}
-        style={[styles.attachButton, isSending && styles.buttonDisabled]}>
+        style={[styles.attachButton, isSending && styles.buttonDisabled]}
+      >
         <Ionicons name="add-circle-outline" size={26} color={c.topIcon} />
       </Pressable>
 
@@ -72,7 +73,9 @@ export function ChatComposerInputRow({
         placeholderTextColor={c.textMuted}
         style={[
           styles.composerInput,
-          isExpanded ? styles.composerInputExpanded : styles.composerInputSingleLine,
+          isExpanded
+            ? styles.composerInputExpanded
+            : styles.composerInputSingleLine,
           {
             color: c.composerText,
             backgroundColor: c.inputRowBg,
@@ -82,7 +85,7 @@ export function ChatComposerInputRow({
         multiline
         blurOnSubmit={false}
         scrollEnabled
-        textAlignVertical={Platform.OS === 'android' ? 'top' : undefined}
+        textAlignVertical={Platform.OS === "android" ? "top" : undefined}
         onContentSizeChange={handleContentSizeChange}
         maxLength={1000}
         editable={!isSending}
@@ -91,7 +94,8 @@ export function ChatComposerInputRow({
       <Pressable
         style={[styles.primaryButton, !canSend && styles.buttonDisabled]}
         disabled={!canSend}
-        onPress={handleSendPress}>
+        onPress={handleSendPress}
+      >
         <Ionicons name="send" size={16} color="#fff" />
       </Pressable>
     </View>

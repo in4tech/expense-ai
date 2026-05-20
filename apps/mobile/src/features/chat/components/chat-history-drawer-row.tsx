@@ -1,9 +1,9 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, View } from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import type { ChatConversation } from '@/src/features/chat/types';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { ThemedText } from "@/components/themed-text";
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import type { ChatConversation } from "@/src/features/chat/types";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatHistoryDrawerRowProps = {
   conversation: ChatConversation;
@@ -37,9 +37,14 @@ export function ChatHistoryDrawerRow({
           borderColor: c.historyItemActiveBorder,
           backgroundColor: c.historyItemActiveBg,
         },
-      ]}>
+      ]}
+    >
       <Pressable style={styles.historyItemMain} onPress={handlePress}>
-        <ThemedText type="defaultSemiBold" numberOfLines={1} style={{ color: c.text }}>
+        <ThemedText
+          type="defaultSemiBold"
+          numberOfLines={1}
+          style={{ color: c.text }}
+        >
           {conversation.title}
         </ThemedText>
         <ThemedText style={[styles.historyMeta, { color: c.historyMeta }]}>

@@ -1,10 +1,10 @@
-import { useCallback } from 'react';
-import { Alert, Modal, Pressable, Share, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback } from "react";
+import { Alert, Modal, Pressable, Share, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { ThemedText } from '@/components/themed-text';
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { ThemedText } from "@/components/themed-text";
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatMoreMenuModalProps = {
   visible: boolean;
@@ -42,10 +42,10 @@ export function ChatMoreMenuModal({
   const handleDeleteRowPress = useCallback(() => {
     onRequestClose();
     Alert.alert(chat.deleteConfirmTitle, chat.deleteServerConfirmMessage, [
-      { text: cancelLabel, style: 'cancel' },
+      { text: cancelLabel, style: "cancel" },
       {
         text: chat.menuDelete,
-        style: 'destructive',
+        style: "destructive",
         onPress: confirmDeleteActiveConversation,
       },
     ]);
@@ -71,7 +71,7 @@ export function ChatMoreMenuModal({
       }
       await Share.share({ message });
     } catch {
-      Alert.alert('', chat.shareFailed);
+      Alert.alert("", chat.shareFailed);
     }
   }, [shareConversationText, chat.shareFailed]);
 
@@ -81,7 +81,12 @@ export function ChatMoreMenuModal({
   }, [onRequestClose, shareConversationFromMenu]);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onRequestClose}
+    >
       <View style={styles.moreMenuRoot}>
         <Pressable style={styles.moreMenuDismiss} onPress={onRequestClose} />
         <View
@@ -91,25 +96,52 @@ export function ChatMoreMenuModal({
               backgroundColor: c.inputRowBg,
               borderColor: c.inputRowBorder,
             },
-          ]}>
+          ]}
+        >
           <Pressable style={styles.moreMenuRow} onPress={handleDeleteRowPress}>
             <View style={styles.moreMenuRowInner}>
               <Ionicons name="trash-outline" size={17} color={c.errorText} />
-              <ThemedText style={[styles.moreMenuRowText, { color: c.errorText }]}>{chat.menuDelete}</ThemedText>
+              <ThemedText
+                style={[styles.moreMenuRowText, { color: c.errorText }]}
+              >
+                {chat.menuDelete}
+              </ThemedText>
             </View>
           </Pressable>
-          <View style={[styles.moreMenuDivider, { backgroundColor: c.inputRowBorder }]} />
+          <View
+            style={[
+              styles.moreMenuDivider,
+              { backgroundColor: c.inputRowBorder },
+            ]}
+          />
           <Pressable style={styles.moreMenuRow} onPress={handleReportRowPress}>
             <View style={styles.moreMenuRowInner}>
               <Ionicons name="flag-outline" size={17} color={c.composerText} />
-              <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{chat.menuReport}</ThemedText>
+              <ThemedText
+                style={[styles.moreMenuRowText, { color: c.composerText }]}
+              >
+                {chat.menuReport}
+              </ThemedText>
             </View>
           </Pressable>
-          <View style={[styles.moreMenuDivider, { backgroundColor: c.inputRowBorder }]} />
+          <View
+            style={[
+              styles.moreMenuDivider,
+              { backgroundColor: c.inputRowBorder },
+            ]}
+          />
           <Pressable style={styles.moreMenuRow} onPress={handleShareRowPress}>
             <View style={styles.moreMenuRowInner}>
-              <Ionicons name="share-social-outline" size={17} color={c.composerText} />
-              <ThemedText style={[styles.moreMenuRowText, { color: c.composerText }]}>{chat.menuShare}</ThemedText>
+              <Ionicons
+                name="share-social-outline"
+                size={17}
+                color={c.composerText}
+              />
+              <ThemedText
+                style={[styles.moreMenuRowText, { color: c.composerText }]}
+              >
+                {chat.menuShare}
+              </ThemedText>
             </View>
           </Pressable>
         </View>

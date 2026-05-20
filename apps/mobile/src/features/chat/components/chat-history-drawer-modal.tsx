@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -7,14 +7,14 @@ import {
   RefreshControl,
   ScrollView,
   View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import { ThemedText } from '@/components/themed-text';
-import { ChatHistoryDrawerRow } from '@/src/features/chat/components/chat-history-drawer-row';
-import { chatScreenStyles as styles } from '@/src/features/chat/styles';
-import { ChatConversation } from '@/src/features/chat/types';
-import type { ChatThemeColors } from '@/src/theme/chat-colors';
+import { ThemedText } from "@/components/themed-text";
+import { ChatHistoryDrawerRow } from "@/src/features/chat/components/chat-history-drawer-row";
+import { chatScreenStyles as styles } from "@/src/features/chat/styles";
+import { ChatConversation } from "@/src/features/chat/types";
+import type { ChatThemeColors } from "@/src/theme/chat-colors";
 
 export type ChatHistoryDrawerModalProps = {
   visible: boolean;
@@ -77,7 +77,12 @@ export function ChatHistoryDrawerModal({
   }
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onRequestClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onRequestClose}
+    >
       <View style={styles.drawerRoot}>
         <Animated.View
           style={[
@@ -87,18 +92,29 @@ export function ChatHistoryDrawerModal({
               borderRightColor: c.drawerPanelBorder,
               transform: [{ translateX: drawerTranslateX }],
             },
-          ]}>
+          ]}
+        >
           <View style={styles.drawerHeader}>
-            <ThemedText type="defaultSemiBold" style={[styles.drawerTitle, { color: c.text }]}>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[styles.drawerTitle, { color: c.text }]}
+            >
               {chat.recentsTitle}
             </ThemedText>
             <View style={styles.drawerHeaderActions}>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={chat.refreshHistoryA11y}
-                style={[styles.drawerIconButton, { borderColor: c.historyItemBorder, backgroundColor: c.historyItemBg }]}
+                style={[
+                  styles.drawerIconButton,
+                  {
+                    borderColor: c.historyItemBorder,
+                    backgroundColor: c.historyItemBg,
+                  },
+                ]}
                 disabled={isRefreshingConversations}
-                onPress={handleRefreshPress}>
+                onPress={handleRefreshPress}
+              >
                 {isRefreshingConversations ? (
                   <ActivityIndicator size="small" color={c.topIcon} />
                 ) : (
@@ -107,9 +123,12 @@ export function ChatHistoryDrawerModal({
               </Pressable>
               <Pressable
                 style={styles.newChatButton}
-                onPress={handleNewChatPress}>
+                onPress={handleNewChatPress}
+              >
                 <Ionicons name="add" size={14} color="#fff" />
-                <ThemedText style={styles.newChatButtonText}>{chat.newChatButton}</ThemedText>
+                <ThemedText style={styles.newChatButtonText}>
+                  {chat.newChatButton}
+                </ThemedText>
               </Pressable>
             </View>
           </View>
@@ -123,16 +142,29 @@ export function ChatHistoryDrawerModal({
                 onRefresh={handleRefreshControl}
                 tintColor={c.topIcon}
               />
-            }>
+            }
+          >
             {conversations.length === 0 ? (
-              <ThemedText style={[styles.emptyHistoryText, { color: c.textMuted }]}>{chat.noConversations}</ThemedText>
+              <ThemedText
+                style={[styles.emptyHistoryText, { color: c.textMuted }]}
+              >
+                {chat.noConversations}
+              </ThemedText>
             ) : (
               conversations.map(renderConversationRow)
             )}
           </ScrollView>
         </Animated.View>
-        <Pressable style={styles.drawerBackdropPressable} onPress={onRequestClose}>
-          <Animated.View style={[styles.drawerBackdrop, { opacity: backdropOpacity, backgroundColor: c.drawerBackdrop }]} />
+        <Pressable
+          style={styles.drawerBackdropPressable}
+          onPress={onRequestClose}
+        >
+          <Animated.View
+            style={[
+              styles.drawerBackdrop,
+              { opacity: backdropOpacity, backgroundColor: c.drawerBackdrop },
+            ]}
+          />
         </Pressable>
       </View>
     </Modal>
