@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.conversations.router import router as conversations_router
+from app.api.authentication.router import router as authentication_router
 
 from app.db.base import Base
 from app.db.models import (  # noqa: F401 — register tables
@@ -11,7 +12,7 @@ from app.db.models import (  # noqa: F401 — register tables
     Message,
     User,
 )
-from app.db.schema_patch import apply_schema_patches, ensure_pgvector_extension
+from app.db.schema_patch import ensure_pgvector_extension
 from app.db.session import engine
 
 app = FastAPI()
@@ -30,6 +31,6 @@ async def startup():
     async with engine.begin() as conn:
         await ensure_pgvector_extension(conn)
         await conn.run_sync(Base.metadata.create_all)
-        await apply_schema_patches(conn)
 
-app.include_router(conversations_router, prefix="/conversations", tags=["conversations"])
+app.include_router(conversations_router, prefix="/conversations", tags=["Conversations"])
+app.include_router(authentication_router, prefix="/auth", tags=["Authentication"])

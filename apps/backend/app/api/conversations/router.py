@@ -1,6 +1,7 @@
 import asyncio
 import json
 import re
+from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
@@ -11,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.db.session import DbSession, client, CHAT_MODELS
 from app.services import chat_service, embedding_service, document_service
+from app.services.auth_service import CurrentUser
 from app.services.memory_service import persist_turn_memories, search_memories
 from app.core.config import settings
 
@@ -70,7 +72,13 @@ class CreateConversationBody(BaseModel):
 
 class ChatStreamBody(BaseModel):
     message: str = Field(..., min_length=1, max_length=10000)
-    user_id: int = Field(default=1, ge=1)
+
+
+async def _require_conversation(db: DbSession, conversation_id: UUID, user_id: UUID):
+    conversation = await chat_service.get_conversation(db, conversation_id, user_id)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return conversation
 
 
 def _conversation_summary_row(conversation) -> dict:
@@ -94,25 +102,32 @@ def _message_row(message) -> dict:
 
 
 @router.get("")
-async def list_conversations(db: DbSession):
-    rows = await chat_service.list_conversations(db)
+async def list_conversations(db: DbSession, current_user: CurrentUser):
+    rows = await chat_service.list_conversations(db, current_user.id)
     return {"conversations": [_conversation_summary_row(c) for c in rows]}
 
 @router.post("")
-async def create_conversation_route(db: DbSession, body: CreateConversationBody = CreateConversationBody()):
-    conversation = await chat_service.create_conversation(db, title=body.title)
+async def create_conversation_route(
+    db: DbSession,
+    current_user: CurrentUser,
+    body: CreateConversationBody = CreateConversationBody(),
+):
+    conversation = await chat_service.create_conversation(
+        db,
+        user_id=current_user.id,
+        title=body.title,
+    )
     return _conversation_summary_row(conversation)
 
 @router.get("/{conversation_id}/messages")
 async def get_conversation_messages(
-    conversation_id: int,
+    conversation_id: UUID,
     db: DbSession,
+    current_user: CurrentUser,
     limit: int = Query(default=20, ge=1, le=500),
-    before_id: int | None = Query(default=None, ge=1),
+    before_id: UUID | None = Query(default=None),
 ):
-    conversation = await chat_service.get_conversation(db, conversation_id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    await _require_conversation(db, conversation_id, current_user.id)
 
     messages, has_more = await chat_service.get_messages_page(
         db,
@@ -126,10 +141,12 @@ async def get_conversation_messages(
     }
 
 @router.delete("/{conversation_id}")
-async def delete_conversation(conversation_id: int, db: DbSession):
-    conversation = await chat_service.get_conversation(db, conversation_id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+async def delete_conversation(
+    conversation_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    await _require_conversation(db, conversation_id, current_user.id)
 
     await chat_service.delete_conversation(
         db=db,
@@ -141,10 +158,12 @@ async def delete_conversation(conversation_id: int, db: DbSession):
     }
 
 @router.post("/{conversation_id}/assistant")
-async def complete_assistant_reply(conversation_id: int, db: DbSession):
-    conversation = await chat_service.get_conversation(db, conversation_id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+async def complete_assistant_reply(
+    conversation_id: UUID,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    conversation = await _require_conversation(db, conversation_id, current_user.id)
 
     api_key = settings.OPENAI_API_KEY
     if not api_key:
@@ -184,9 +203,10 @@ async def complete_assistant_reply(conversation_id: int, db: DbSession):
 
 @router.post("/{conversation_id}/chat-stream")
 async def chat_stream(
-    conversation_id: int,
+    conversation_id: UUID,
     body: ChatStreamBody,
     db: DbSession,
+    current_user: CurrentUser,
 ):
     api_key = settings.OPENAI_API_KEY
     if not api_key:
@@ -195,17 +215,9 @@ async def chat_stream(
             detail="OPENAI_API_KEY is not configured"
         )
 
-    conversation = await chat_service.get_conversation(
-        db,
-        conversation_id
-    )
-    if not conversation:
-        raise HTTPException(
-            status_code=404,
-            detail="Conversation not found"
-        )
+    await _require_conversation(db, conversation_id, current_user.id)
 
-    user_id = body.user_id
+    user_id = current_user.id
     user_text = body.message
     user_embedding = await embedding_service.create_embedding(
         user_text
@@ -240,10 +252,10 @@ async def chat_stream(
 
     initial_state = {
         "db": db,
-        "user_id": user_id,
+        "user_id": str(user_id),
         "user_input": user_text,
         "memory_context": memory_context,
-        "conversation_id": conversation_id,
+        "conversation_id": str(conversation_id),
         "retrieval_docs": [],
         "rerank_docs": [],
         "tool_results": [],
@@ -383,11 +395,14 @@ async def chat_stream(
 
 @router.post("/{conversation_id}/upload-pdf")
 async def upload_pdf(
-    conversation_id: int,
+    conversation_id: UUID,
     db: DbSession,
+    current_user: CurrentUser,
     file: UploadFile = File(...),
     message: str = Form(default=""),
 ):
+    await _require_conversation(db, conversation_id, current_user.id)
+
     if file.content_type != "application/pdf":
         raise HTTPException(
             status_code=400,

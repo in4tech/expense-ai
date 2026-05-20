@@ -5,7 +5,7 @@ import {
   listConversations,
   type GetConversationMessagesOptions,
 } from "@/src/features/chat/api/services";
-import type { ApiClient } from "@/src/lib/api";
+import type { ApiClient } from "@/src/api";
 import { queryKeys } from "@/src/query/query-keys";
 
 /** TanStack Query: cacheable conversation list for `useQuery` / `prefetchQuery`. */

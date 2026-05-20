@@ -1,4 +1,4 @@
-import { apiPaths, readApiErrorDetail, type ApiClient } from "@/src/lib/api";
+import { apiPaths, readApiErrorDetail, type ApiClient } from "@/src/api";
 
 export type UploadPdfFile = {
   uri: string;

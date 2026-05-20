@@ -119,15 +119,26 @@ type Dictionary = {
   auth: {
     signInTitle: string;
     signInSubtitle: string;
+    signUpTitle: string;
+    signUpSubtitle: string;
     emailLabel: string;
     emailPlaceholder: string;
     passwordLabel: string;
+    confirmPasswordLabel: string;
     forgotPassword: string;
     signInCta: string;
+    signUpCta: string;
     orSignInWith: string;
     noAccount: string;
+    haveAccount: string;
     signUp: string;
+    signIn: string;
     socialComingSoon: string;
+    fillEmailPassword: string;
+    passwordMismatch: string;
+    signInFailed: string;
+    signUpFailed: string;
+    registerSuccess: string;
   };
 };
 

@@ -8,6 +8,7 @@ from app.services.embedding_service import create_embedding
 from app.services.chat_service import hybrid_search_messages
 from app.services.memory_service import hybrid_search_memories
 from app.services.document_service import hybrid_search_document_chunks
+from app.db.uuid_columns import as_uuid
 from app.services.rerank_service import rerank_pipeline
 
 async def compress_context(
@@ -80,6 +81,8 @@ async def unified_retrieval(
     documents_limit: int = 8,
     top_n: int = 10,
 ):
+    user_id = as_uuid(user_id)
+    conversation_id = as_uuid(conversation_id)
     embedding = await create_embedding(query)
 
     # ========================================

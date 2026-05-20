@@ -1,18 +1,18 @@
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.sql import func
 
 from pgvector.sqlalchemy import Vector
 
 from app.db.base import Base
+from app.db.uuid_columns import uuid_fk, uuid_pk
 
 
 class Message(Base):
     __tablename__ = "messages"
 
-    id = Column(Integer, primary_key=True, index=True)
-
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
+    id = uuid_pk()
+    conversation_id = uuid_fk("conversations", nullable=False)
 
     role = Column(String, nullable=False)
     content = Column(Text, nullable=False)

@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 class AgentState(TypedDict):
     db: AsyncSession
 
-    user_id: int
+    user_id: str
     user_input: str
     user_language: str
-    
+
     memory_context: str
-    conversation_id: int
+    conversation_id: str
 
     planner_output: Optional[dict]
 

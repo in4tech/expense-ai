@@ -14,18 +14,18 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
 import { BottomSheet } from '@/components/bottom-sheet';
 import { useToast } from '@/components/toast';
+import { useAuth } from '@/src/features/auth';
 import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const { signOut } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { language, dictionary, toggleLanguage } = useLanguage();
@@ -90,9 +90,14 @@ export default function SettingsScreen() {
   }, []);
 
   const confirmLogout = useCallback(() => {
-    queryClient.clear();
-    router.replace(href.authSignIn);
-  }, [queryClient, router]);
+    void (async () => {
+      try {
+        await signOut();
+      } finally {
+        router.replace(href.authSignIn);
+      }
+    })();
+  }, [router, signOut]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={['top']}>

@@ -72,7 +72,7 @@ async def create_document_chunk(
 
 async def search_document_chunks(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id,
     embedding,
     limit=5
 ):
@@ -106,7 +106,7 @@ async def keyword_search_chunks(
 
 async def hybrid_search_document_chunks(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id,
     embedding,
     query,
     limit=5

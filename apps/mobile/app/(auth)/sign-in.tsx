@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast';
 import { Colors } from '@/constants/theme';
+import { useAuth } from '@/src/features/auth';
 import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 
@@ -32,9 +34,11 @@ export default function SignInScreen() {
   const { showToast } = useToast();
   const a = dictionary.auth;
 
+  const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const palette = useMemo(
     () => ({
@@ -51,10 +55,24 @@ export default function SignInScreen() {
     [isDark, theme.background, theme.icon, theme.text],
   );
 
-  const onSignIn = useCallback(() => {
+  const onSignIn = useCallback(async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.replace(href.mainChat);
-  }, [router]);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      showToast({ status: 'warning', title: a.fillEmailPassword, durationMs: 2400 });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await signIn({ email: trimmedEmail, password });
+      router.replace(href.mainChat);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : a.signInFailed;
+      showToast({ status: 'error', title: message || a.signInFailed, durationMs: 3200 });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [a.fillEmailPassword, a.signInFailed, email, password, router, showToast, signIn]);
 
   const onForgotPassword = useCallback(() => {
     void Haptics.selectionAsync();
@@ -152,12 +170,20 @@ export default function SignInScreen() {
           </View>
 
           <Pressable
-            onPress={onSignIn}
+            onPress={() => void onSignIn()}
+            disabled={isSubmitting}
             style={({ pressed }) => [
               styles.primaryButton,
-              { backgroundColor: BRAND_TINT, opacity: pressed ? 0.9 : 1 },
+              {
+                backgroundColor: BRAND_TINT,
+                opacity: isSubmitting ? 0.65 : pressed ? 0.9 : 1,
+              },
             ]}>
-            <Text style={styles.primaryButtonText}>{a.signInCta}</Text>
+            {isSubmitting ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{a.signInCta}</Text>
+            )}
           </Pressable>
 
           <View style={styles.orRow}>

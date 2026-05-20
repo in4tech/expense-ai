@@ -1,6 +1,5 @@
-import { DEFAULT_DEV_USER_ID } from "@/src/config/default-user";
-import { apiPaths, type ApiClient } from "@/src/lib/api";
-import { resolveApiRequestLogging } from "@/src/lib/api/request-log";
+import { apiPaths, type ApiClient } from "@/src/api";
+import { resolveApiRequestLogging } from "@/src/api/request-log";
 import type { ChatResponse } from "@/src/features/chat/types";
 import EventSource from "react-native-sse";
 
@@ -52,6 +51,7 @@ export type SendConversationMessageOptions = {
   onDelta?: (delta: string) => void;
   /** Called for every parsed SSE payload event. */
   onEvent?: (event: SsePayload) => void;
+  getAccessToken?: () => string | undefined;
 };
 
 /**
@@ -64,8 +64,7 @@ export const sendConversationMessage = async (
   message: string,
   options?: SendConversationMessageOptions,
 ): Promise<ChatResponse> => {
-  const numericConversationId = Number(conversationId);
-  if (!Number.isFinite(numericConversationId)) {
+  if (!conversationId.trim()) {
     throw new Error("Invalid conversation id.");
   }
   const onDelta = options?.onDelta ?? (() => {});
@@ -79,25 +78,24 @@ export const sendConversationMessage = async (
     let full = "";
     let settled = false;
 
-    const streamBody = JSON.stringify({
-      message,
-      user_id: DEFAULT_DEV_USER_ID,
-    });
+    const streamBody = JSON.stringify({ message });
+    const streamHeaders: Record<string, string> = {
+      Accept: "text/event-stream",
+      "Content-Type": "application/json",
+    };
+    const accessToken = options?.getAccessToken?.();
+    if (accessToken) {
+      streamHeaders.Authorization = `Bearer ${accessToken}`;
+    }
     if (logApi) {
       console.log(`[API] → SSE POST ${streamUrl}`);
-      console.log("[API]   headers", {
-        Accept: "text/event-stream",
-        "Content-Type": "application/json",
-      });
+      console.log("[API]   headers", streamHeaders);
       console.log("[API]   body", streamBody);
     }
 
     const es = new EventSource(streamUrl, {
       method: "POST",
-      headers: {
-        Accept: "text/event-stream",
-        "Content-Type": "application/json",
-      },
+      headers: streamHeaders,
       body: streamBody,
       pollingInterval: 0,
     });

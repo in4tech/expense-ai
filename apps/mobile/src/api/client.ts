@@ -3,7 +3,7 @@ import {
   readResponseBodyForLog,
   resolveApiRequestLogging,
   summarizeRequestBodyForLog,
-} from '@/src/lib/api/request-log';
+} from '@/src/api/request-log';
 
 export const normalizeBaseUrl = (apiBaseUrl: string) => apiBaseUrl.replace(/\/$/, '');
 

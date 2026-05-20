@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from uuid import UUID
 
 from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,35 +10,37 @@ from app.db.models.message import Message
 
 _DEFAULT_TITLES = frozenset({"New Chat", "New conversation"})
 
-def format_conversation_summary(messages: list[Message]) -> str:
-    return "\n".join(f"{m.role}: {m.content}" for m in messages)
-
-
-async def rebuild_conversation_summary(db: AsyncSession, conversation_id: int) -> None:
+async def get_conversation(
+    db: AsyncSession,
+    conversation_id: UUID,
+    user_id: UUID,
+) -> Conversation | None:
     result = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at.asc(), Message.id.asc())
+        select(Conversation)
+        .where(Conversation.id == conversation_id)
+        .where(Conversation.user_id == user_id)
     )
-    rows = list(result.scalars().all())
-    text = format_conversation_summary(rows)
-    conversation = await db.get(Conversation, conversation_id)
-    if conversation:
-        conversation.summary = text
+    return result.scalar_one_or_none()
 
 
-async def get_conversation(db: AsyncSession, conversation_id: int) -> Conversation | None:
-    return await db.get(Conversation, conversation_id)
-
-async def list_conversations(db: AsyncSession) -> list[Conversation]:
+async def list_conversations(db: AsyncSession, user_id: UUID) -> list[Conversation]:
     result = await db.execute(
-        select(Conversation).order_by(Conversation.updated_at.desc(), Conversation.id.desc())
+        select(Conversation)
+        .where(Conversation.user_id == user_id)
+        .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
     )
     return list(result.scalars().all())
 
 
-async def create_conversation(db: AsyncSession, title: str | None = None) -> Conversation:
-    conversation = Conversation(title=title or "New conversation")
+async def create_conversation(
+    db: AsyncSession,
+    user_id: UUID,
+    title: str | None = None,
+) -> Conversation:
+    conversation = Conversation(
+        user_id=user_id,
+        title=title or "New conversation",
+    )
     db.add(conversation)
     await db.commit()
     await db.refresh(conversation)
@@ -47,11 +49,10 @@ async def create_conversation(db: AsyncSession, title: str | None = None) -> Con
 
 async def get_messages(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     *,
     limit: int | None = None,
 ) -> list[Message]:
-    """``limit=None``: all messages asc. Otherwise last ``limit`` messages, asc order."""
     if limit is None:
         result = await db.execute(
             select(Message)
@@ -74,10 +75,10 @@ async def get_messages(
 
 async def get_messages_page(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     *,
     limit: int = 20,
-    before_id: int | None = None,
+    before_id: UUID | None = None,
 ) -> tuple[list[Message], bool]:
     capped = min(max(limit, 1), 500)
     stmt = select(Message).where(Message.conversation_id == conversation_id)
@@ -99,7 +100,7 @@ async def get_messages_page(
 
 async def create_message(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     role: str,
     content: str,
     embedding=None,
@@ -124,7 +125,7 @@ async def create_message(
 
 async def search_similar_messages(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     embedding,
     limit: int = 5,
 ):
@@ -139,7 +140,7 @@ async def search_similar_messages(
 
 async def keyboard_search_messages(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     query,
     limit: int = 5,
 ):
@@ -155,7 +156,7 @@ async def keyboard_search_messages(
 
 async def hybrid_search_messages(
     db: AsyncSession,
-    conversation_id: int,
+    conversation_id: UUID,
     embedding,
     query,
     limit=5
@@ -166,7 +167,7 @@ async def hybrid_search_messages(
 
 async def delete_conversation(
     db: AsyncSession,
-    conversation_id: int
+    conversation_id: UUID,
 ) -> None:
     await db.execute(delete(Message).where(Message.conversation_id == conversation_id))
     await db.execute(delete(DocumentChunk).where(DocumentChunk.conversation_id == conversation_id))

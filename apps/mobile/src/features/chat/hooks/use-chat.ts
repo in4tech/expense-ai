@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { DEFAULT_API_BASE_URL } from "@/src/config/env";
+import { useAuth } from "@/src/features/auth";
 import {
   completeAssistantReply,
   conversationsListQueryOptions,
@@ -12,7 +12,6 @@ import {
   sendConversationMessage,
   uploadConversationPdf,
 } from "@/src/features/chat/api";
-import { createApiClient } from "@/src/lib/api";
 import { queryKeys } from "@/src/query/query-keys";
 import {
   ChatConversation,
@@ -58,10 +57,11 @@ const mapStreamingStatusFromEvent = (
 
 export const useChat = () => {
   const queryClient = useQueryClient();
-  const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
-  const apiClient = useMemo(
-    () => createApiClient({ baseUrl: apiBaseUrl }),
-    [apiBaseUrl],
+  const { apiBaseUrl, setApiBaseUrl, getApiClient, getAccessToken } = useAuth();
+  const apiClient = useMemo(() => getApiClient(), [getApiClient]);
+  const streamAuthOptions = useMemo(
+    () => ({ getAccessToken }),
+    [getAccessToken],
   );
   const conversationsListKey = useMemo(
     () => queryKeys.conversations.list(apiBaseUrl),
@@ -246,6 +246,7 @@ export const useChat = () => {
         conversationId,
         content,
         {
+          ...streamAuthOptions,
           onDelta: (delta) => {
             streamedReply += delta;
             streamBufferRef.current = streamedReply;
@@ -436,6 +437,7 @@ export const useChat = () => {
           activeConversationId,
           lastUserMessage,
           {
+            ...streamAuthOptions,
             onEvent: (event) => {
               const next = mapStreamingStatusFromEvent(event);
               if (next !== undefined) {

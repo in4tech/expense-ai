@@ -9,12 +9,16 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       TAVILY_API_KEY: ${TAVILY_API_KEY}
+      COHERE_API_KEY: ${COHERE_API_KEY:-}
+      REDIS_URL: ${REDIS_URL}
+      SECRET_KEY: ${SECRET_KEY}
     ports:
       - "8000:8000"
     volumes:
       - ./apps/backend:/app
     depends_on:
       - postgres
+      - redis
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -33,3 +37,8 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"

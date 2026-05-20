@@ -2,7 +2,7 @@
  * Barrel re-exports for `@/src/features/chat/api/conversation-api`.
  * Implementation is split by concern under the same folder.
  */
-export { apiPaths } from "@/src/lib/api/paths";
+export { apiPaths } from "@/src/api/paths";
 export type {
   ConversationMessagesPage,
   ConversationSummaryDto,

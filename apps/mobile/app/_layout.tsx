@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ToastProvider } from '@/components/toast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider } from '@/src/providers';
 import { LanguageProvider } from '@/src/i18n';
 import { QueryProvider } from '@/src/query/query-provider';
 
@@ -19,17 +20,19 @@ export default function RootLayout() {
   return (
     <LanguageProvider>
       <QueryProvider>
-        <SafeAreaProvider>
-          <ToastProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(main)" />
-                <Stack.Screen name="(auth)" />
-              </Stack>
-              <StatusBar style="auto" />
-            </ThemeProvider>
-          </ToastProvider>
-        </SafeAreaProvider>
+        <AuthProvider>
+          <SafeAreaProvider>
+            <ToastProvider>
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(main)" />
+                  <Stack.Screen name="(auth)" />
+                </Stack>
+                <StatusBar style="auto" />
+              </ThemeProvider>
+            </ToastProvider>
+          </SafeAreaProvider>
+        </AuthProvider>
       </QueryProvider>
     </LanguageProvider>
   );

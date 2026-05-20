@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     TAVILY_API_KEY: str
     COHERE_API_KEY: str | None = None
+    REDIS_URL: str
+    SECRET_KEY: str
 
 
 @lru_cache(maxsize=1)

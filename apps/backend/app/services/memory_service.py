@@ -161,7 +161,7 @@ def _normalize_memory(memory: dict) -> dict | None:
 
 async def persist_turn_memories(
     db: AsyncSession,
-    user_id: int,
+    user_id,
     user_message: str,
     assistant_response: str,
 ) -> int:

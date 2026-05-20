@@ -4,5 +4,5 @@ export {
   readApiErrorDetail,
   type ApiClient,
   type CreateApiClientConfig,
-} from '@/src/lib/api/client';
-export { apiPaths } from '@/src/lib/api/paths';
+} from '@/src/api/client';
+export { apiPaths } from '@/src/api/paths';

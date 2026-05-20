@@ -1,4 +1,7 @@
 source "https://rubygems.org"
 
+# Ruby 2.6: required by activesupport / CocoaPods when using `bundle exec pod`.
+gem "logger"
+
 gem "fastlane", "~> 2.227"
 gem "cocoapods", ">= 1.13", "< 2"
