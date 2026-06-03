@@ -41,6 +41,8 @@ export type HousingDetail = {
   garbage_unit: string | null;
   has_wifi: boolean | null;
   address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   amenities: unknown;
   last_update: string | null;
   created_at: string | null;

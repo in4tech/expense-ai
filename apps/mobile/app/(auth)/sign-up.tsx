@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,18 +16,14 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast';
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/src/features/auth';
+import { useAppTheme } from '@/src/theme';
 import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 
-const BRAND_TINT = Colors.light.tint;
-
 export default function SignUpScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
-  const theme = Colors[colorScheme];
+  const { colors } = useAppTheme();
   const { dictionary } = useLanguage();
   const { showToast } = useToast();
   const { signUp } = useAuth();
@@ -39,19 +34,6 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const palette = useMemo(
-    () => ({
-      screen: theme.background,
-      text: theme.text,
-      muted: theme.icon,
-      inputBg: isDark ? '#1E1E1E' : '#F2F2F2',
-      inputBorder: isDark ? '#38383A' : '#E8E8EA',
-      link: BRAND_TINT,
-      backBg: isDark ? '#2C2C2E' : '#E8E8E8',
-    }),
-    [isDark, theme.background, theme.icon, theme.text],
-  );
 
   const goBack = useCallback(() => {
     void Haptics.selectionAsync();
@@ -99,16 +81,16 @@ export default function SignUpScreen() {
   }, [router]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.screen }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={goBack}
-          style={[styles.backButton, { backgroundColor: palette.backBg }]}>
-          <Ionicons name="chevron-back" size={22} color={palette.text} />
+          style={[styles.backButton, { backgroundColor: colors.chipOff }]}>
+          <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>
-        <Text style={[styles.headerTitle, { color: palette.text }]}>{a.signUp}</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{a.signUp}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -120,16 +102,16 @@ export default function SignUpScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          <Text style={[styles.title, { color: palette.text }]}>{a.signUpTitle}</Text>
-          <Text style={[styles.subtitle, { color: palette.muted }]}>{a.signUpSubtitle}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{a.signUpTitle}</Text>
+          <Text style={[styles.subtitle, { color: colors.hint }]}>{a.signUpSubtitle}</Text>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.label, { color: palette.text }]}>{a.emailLabel}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{a.emailLabel}</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               placeholder={a.emailPlaceholder}
-              placeholderTextColor={palette.muted}
+              placeholderTextColor={colors.hint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -138,35 +120,35 @@ export default function SignUpScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
-                  color: palette.text,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
+                  color: colors.text,
                 },
               ]}
             />
           </View>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.label, { color: palette.text }]}>{a.passwordLabel}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{a.passwordLabel}</Text>
             <View
               style={[
                 styles.inputRow,
                 {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
                 },
               ]}>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
-                placeholderTextColor={palette.muted}
+                placeholderTextColor={colors.hint}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="new-password"
                 textContentType="newPassword"
-                style={[styles.inputInner, { color: palette.text }]}
+                style={[styles.inputInner, { color: colors.text }]}
               />
               <Pressable
                 accessibilityRole="button"
@@ -177,19 +159,19 @@ export default function SignUpScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={22}
-                  color={palette.muted}
+                  color={colors.hint}
                 />
               </Pressable>
             </View>
           </View>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.label, { color: palette.text }]}>{a.confirmPasswordLabel}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{a.confirmPasswordLabel}</Text>
             <TextInput
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="••••••••"
-              placeholderTextColor={palette.muted}
+              placeholderTextColor={colors.hint}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
@@ -198,9 +180,9 @@ export default function SignUpScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
-                  color: palette.text,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
+                  color: colors.text,
                 },
               ]}
             />
@@ -212,7 +194,7 @@ export default function SignUpScreen() {
             style={({ pressed }) => [
               styles.primaryButton,
               {
-                backgroundColor: BRAND_TINT,
+                backgroundColor: colors.link,
                 opacity: isSubmitting ? 0.65 : pressed ? 0.9 : 1,
               },
             ]}>
@@ -224,9 +206,9 @@ export default function SignUpScreen() {
           </Pressable>
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: palette.muted }]}>{a.haveAccount} </Text>
+            <Text style={[styles.footerText, { color: colors.hint }]}>{a.haveAccount} </Text>
             <Pressable onPress={onSignIn} hitSlop={8}>
-              <Text style={[styles.footerLink, { color: palette.link }]}>{a.signIn}</Text>
+              <Text style={[styles.footerLink, { color: colors.link }]}>{a.signIn}</Text>
             </Pressable>
           </View>
         </ScrollView>

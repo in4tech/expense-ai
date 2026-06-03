@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -33,6 +33,8 @@ class Housing(Base):
     garbage_unit= Column(String, nullable=True)
     has_wifi = Column(Boolean, nullable=True)
     address = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     amenities = Column(JSONB, nullable=True)
     last_update = Column(DateTime(timezone=True), nullable=True)
 

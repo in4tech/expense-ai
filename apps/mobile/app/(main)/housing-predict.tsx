@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,6 +14,7 @@ import { ThemedText } from "@/components/themed-text";
 import { useLanguage } from "@/src/i18n";
 import { href } from "@/src/navigation/href";
 import { subscribeLocationPick } from "@/src/navigation/location-pick-bridge";
+import { useAppTheme } from "@/src/theme";
 
 type NumericFieldKey = "medInc" | "houseAge" | "aveRooms" | "aveBedrms" | "population" | "aveOccup";
 
@@ -53,8 +53,7 @@ export default function HousingPredictScreen() {
   const [longitude, setLongitude] = useState("");
   const [predictedPrice, setPredictedPrice] = useState<number | null>(null);
   const { dictionary } = useLanguage();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { colors: c } = useAppTheme();
 
   useEffect(() => {
     return subscribeLocationPick((result) => {
@@ -63,19 +62,6 @@ export default function HousingPredictScreen() {
       setLongitude(String(result.longitude));
     });
   }, []);
-
-  const c = {
-    screen: isDark ? "#0B0B0F" : "#F5F7FB",
-    card: isDark ? "#17181D" : "#FFFFFF",
-    cardMuted: isDark ? "#111217" : "#F8FAFC",
-    title: isDark ? "#F3F4F6" : "#0F172A",
-    text: isDark ? "#CBD5E1" : "#334155",
-    hint: isDark ? "#94A3B8" : "#64748B",
-    primary: "#4F46E5",
-    border: isDark ? "#2B2D33" : "#E2E8F0",
-    successBg: isDark ? "#123520" : "#DCFCE7",
-    successText: isDark ? "#86EFAC" : "#166534",
-  };
 
   const allValid = useMemo(() => {
     const numsOk = FIELD_META.every((field) => toNumber(numericFields[field.key]) !== null);

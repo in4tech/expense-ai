@@ -5,7 +5,7 @@ import { vn } from '@/src/i18n/vn';
 
 type Language = 'en' | 'vn';
 
-type Dictionary = {
+export type Dictionary = {
   tabs: {
     home: string;
     chat: string;
@@ -68,9 +68,13 @@ type Dictionary = {
     loadFailed: string;
     retry: string;
     sectionOverview: string;
+    sectionLocation: string;
     sectionProperty: string;
     sectionRoom: string;
+    descriptionLabel: string;
+    openInMaps: string;
     noRoom: string;
+    noRoomFeatures: string;
     rentLabel: string;
     contactForPrice: string;
     yes: string;

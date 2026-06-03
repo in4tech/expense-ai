@@ -9,6 +9,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/src/providers';
 import { LanguageProvider } from '@/src/i18n';
 import { QueryProvider } from '@/src/query/query-provider';
+import { AppThemeProvider } from '@/src/theme';
 
 export const unstable_settings = {
   anchor: '(main)/(tabs)',
@@ -21,17 +22,19 @@ export default function RootLayout() {
     <LanguageProvider>
       <QueryProvider>
         <AuthProvider>
-          <SafeAreaProvider>
-            <ToastProvider>
-              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <AppThemeProvider>
+            <SafeAreaProvider>
+              <ToastProvider>
+                <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(main)" />
                   <Stack.Screen name="(auth)" />
                 </Stack>
                 <StatusBar style="auto" />
-              </ThemeProvider>
-            </ToastProvider>
-          </SafeAreaProvider>
+                </ThemeProvider>
+              </ToastProvider>
+            </SafeAreaProvider>
+          </AppThemeProvider>
         </AuthProvider>
       </QueryProvider>
     </LanguageProvider>

@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   StyleSheet,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +16,7 @@ import { useAuth } from "@/src/providers/auth-context";
 import { housingsListQueryOptions, type Housing } from "@/src/features/housings";
 import { useLanguage } from "@/src/i18n";
 import { href } from "@/src/navigation/href";
+import { useAppTheme } from "@/src/theme";
 
 const VND = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -26,6 +26,7 @@ const VND = new Intl.NumberFormat("vi-VN", {
 
 const feeText = (fee: number | null) => {
   if (fee == null) return "—";
+  if (fee <= 0) return "Free";
   return VND.format(fee);
 };
 
@@ -37,26 +38,12 @@ const priceText = (price: number | null) => {
 export default function HomeScreen() {
   const { getApiClient } = useAuth();
   const { dictionary } = useLanguage();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { colors: c } = useAppTheme();
   const client = useMemo(() => getApiClient(), [getApiClient]);
 
   const { data, isLoading, isRefetching, isError, error, refetch } = useQuery(
     housingsListQueryOptions(client, 60, 0),
   );
-
-  const c = {
-    screen: isDark ? "#0B0B0F" : "#F5F7FB",
-    card: isDark ? "#17181D" : "#FFFFFF",
-    title: isDark ? "#F3F4F6" : "#0F172A",
-    text: isDark ? "#CBD5E1" : "#334155",
-    hint: isDark ? "#94A3B8" : "#64748B",
-    primary: "#4F46E5",
-    border: isDark ? "#2B2D33" : "#E2E8F0",
-    success: isDark ? "#86EFAC" : "#16A34A",
-    danger: isDark ? "#FCA5A5" : "#DC2626",
-    chipBg: isDark ? "#23252C" : "#EEF2FF",
-  };
 
   const housings = data?.housings ?? [];
 
@@ -181,10 +168,12 @@ function FeeCell({
   value: string;
   color: string;
 }) {
+  const isFree = value === "Free";
+
   return (
     <View style={styles.feeCell}>
       <ThemedText style={[styles.feeLabel, { color }]}>{label}</ThemedText>
-      <ThemedText style={[styles.feeValue, { color }]} numberOfLines={1}>
+      <ThemedText style={[styles.feeValue, { color }, isFree && styles.feeValueFree]} numberOfLines={1}>
         {value}
       </ThemedText>
     </View>
@@ -247,6 +236,7 @@ const styles = StyleSheet.create({
   },
   feeLabel: { fontSize: 11, opacity: 0.8, marginBottom: 2 },
   feeValue: { fontSize: 12, fontWeight: "600" },
+  feeValueFree: { fontWeight: "800" },
   footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",

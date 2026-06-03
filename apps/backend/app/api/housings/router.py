@@ -33,6 +33,8 @@ def _housing_row(housing: Housing) -> dict:
         "garbage_unit": housing.garbage_unit,
         "has_wifi": housing.has_wifi,
         "address": housing.address,
+        "latitude": housing.latitude,
+        "longitude": housing.longitude,
         "amenities": housing.amenities,
         "last_update": housing.last_update.isoformat() if housing.last_update else None,
         "created_at": housing.created_at.isoformat() if housing.created_at else None,

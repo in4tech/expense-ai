@@ -5,7 +5,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  useColorScheme,
   View,
   type ListRenderItemInfo,
   type NativeScrollEvent,
@@ -44,12 +43,10 @@ import {
 import { useToast } from "@/components/toast";
 import { useLanguage } from "@/src/i18n";
 import { Ionicons } from "@expo/vector-icons";
-import { getChatThemeColors } from "@/src/theme/chat-colors";
+import { useAppTheme } from "@/src/theme";
 
 export default function ChatScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
-  const c = useMemo(() => getChatThemeColors(isDark), [isDark]);
+  const { chat: c, isDark } = useAppTheme();
 
   const listRef = useRef<FlatList<ChatListItem>>(null);
   const atBottomRef = useRef(true);

@@ -8,7 +8,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,43 +16,23 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useToast } from '@/components/toast';
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/src/features/auth';
+import { useAppTheme } from '@/src/theme';
 import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 
-/** Brand CTA from app theme (`Colors.light.tint`); primary actions in both modes. */
-const BRAND_TINT = Colors.light.tint;
-
 export default function SignInScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const isDark = colorScheme === 'dark';
-  const theme = Colors[colorScheme];
+  const { colors } = useAppTheme();
   const { dictionary } = useLanguage();
   const { showToast } = useToast();
   const a = dictionary.auth;
 
   const { signIn } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(__DEV__ ? 'demo-pca@yopmail.com' : '');
+  const [password, setPassword] = useState(__DEV__ ? '123456' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const palette = useMemo(
-    () => ({
-      screen: theme.background,
-      text: theme.text,
-      muted: theme.icon,
-      inputBg: isDark ? '#1E1E1E' : '#F2F2F2',
-      inputBorder: isDark ? '#38383A' : '#E8E8EA',
-      socialBg: isDark ? '#2C2C2E' : '#FFFFFF',
-      socialBorder: isDark ? '#48484A' : '#E5E5EA',
-      divider: isDark ? '#38383A' : '#E5E5EA',
-      link: BRAND_TINT,
-    }),
-    [isDark, theme.background, theme.icon, theme.text],
-  );
 
   const onSignIn = useCallback(async () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -94,7 +73,7 @@ export default function SignInScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: palette.screen }]} edges={['top', 'bottom']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -103,16 +82,16 @@ export default function SignInScreen() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}>
-          <Text style={[styles.title, { color: palette.text }]}>{a.signInTitle}</Text>
-          <Text style={[styles.subtitle, { color: palette.muted }]}>{a.signInSubtitle}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{a.signInTitle}</Text>
+          <Text style={[styles.subtitle, { color: colors.hint }]}>{a.signInSubtitle}</Text>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.label, { color: palette.text }]}>{a.emailLabel}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{a.emailLabel}</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               placeholder={a.emailPlaceholder}
-              placeholderTextColor={palette.muted}
+              placeholderTextColor={colors.hint}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -121,35 +100,35 @@ export default function SignInScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
-                  color: palette.text,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
+                  color: colors.text,
                 },
               ]}
             />
           </View>
 
           <View style={styles.fieldBlock}>
-            <Text style={[styles.label, { color: palette.text }]}>{a.passwordLabel}</Text>
+            <Text style={[styles.label, { color: colors.text }]}>{a.passwordLabel}</Text>
             <View
               style={[
                 styles.inputRow,
                 {
-                  backgroundColor: palette.inputBg,
-                  borderColor: palette.inputBorder,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
                 },
               ]}>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"
-                placeholderTextColor={palette.muted}
+                placeholderTextColor={colors.hint}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
                 autoComplete="password"
                 textContentType="password"
-                style={[styles.inputInner, { color: palette.text }]}
+                style={[styles.inputInner, { color: colors.text }]}
               />
               <Pressable
                 accessibilityRole="button"
@@ -160,12 +139,12 @@ export default function SignInScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={22}
-                  color={palette.muted}
+                  color={colors.hint}
                 />
               </Pressable>
             </View>
             <Pressable onPress={onForgotPassword} style={styles.forgotWrap}>
-              <Text style={[styles.forgot, { color: palette.link }]}>{a.forgotPassword}</Text>
+              <Text style={[styles.forgot, { color: colors.link }]}>{a.forgotPassword}</Text>
             </Pressable>
           </View>
 
@@ -175,7 +154,7 @@ export default function SignInScreen() {
             style={({ pressed }) => [
               styles.primaryButton,
               {
-                backgroundColor: BRAND_TINT,
+                backgroundColor: colors.link,
                 opacity: isSubmitting ? 0.65 : pressed ? 0.9 : 1,
               },
             ]}>
@@ -187,9 +166,9 @@ export default function SignInScreen() {
           </Pressable>
 
           <View style={styles.orRow}>
-            <View style={[styles.orLine, { backgroundColor: palette.divider }]} />
-            <Text style={[styles.orText, { color: palette.muted }]}>{a.orSignInWith}</Text>
-            <View style={[styles.orLine, { backgroundColor: palette.divider }]} />
+            <View style={[styles.orLine, { backgroundColor: colors.divider }]} />
+            <Text style={[styles.orText, { color: colors.hint }]}>{a.orSignInWith}</Text>
+            <View style={[styles.orLine, { backgroundColor: colors.divider }]} />
           </View>
 
           <View style={styles.socialRow}>
@@ -198,43 +177,43 @@ export default function SignInScreen() {
               style={({ pressed }) => [
                 styles.socialButton,
                 {
-                  backgroundColor: palette.socialBg,
-                  borderColor: palette.socialBorder,
+                  backgroundColor: colors.socialBg,
+                  borderColor: colors.socialBorder,
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}>
-              <Ionicons name="logo-apple" size={26} color={palette.text} />
+              <Ionicons name="logo-apple" size={26} color={colors.text} />
             </Pressable>
             <Pressable
               onPress={onSocial}
               style={({ pressed }) => [
                 styles.socialButton,
                 {
-                  backgroundColor: palette.socialBg,
-                  borderColor: palette.socialBorder,
+                  backgroundColor: colors.socialBg,
+                  borderColor: colors.socialBorder,
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}>
-              <Ionicons name="logo-google" size={24} color={palette.text} />
+              <Ionicons name="logo-google" size={24} color={colors.text} />
             </Pressable>
             <Pressable
               onPress={onSocial}
               style={({ pressed }) => [
                 styles.socialButton,
                 {
-                  backgroundColor: palette.socialBg,
-                  borderColor: palette.socialBorder,
+                  backgroundColor: colors.socialBg,
+                  borderColor: colors.socialBorder,
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}>
-              <Ionicons name="logo-facebook" size={24} color={BRAND_TINT} />
+              <Ionicons name="logo-facebook" size={24} color={colors.link} />
             </Pressable>
           </View>
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: palette.muted }]}>{a.noAccount} </Text>
+            <Text style={[styles.footerText, { color: colors.hint }]}>{a.noAccount} </Text>
             <Pressable onPress={onSignUp} hitSlop={8}>
-              <Text style={[styles.footerLink, { color: palette.link }]}>{a.signUp}</Text>
+              <Text style={[styles.footerLink, { color: colors.link }]}>{a.signUp}</Text>
             </Pressable>
           </View>
         </ScrollView>

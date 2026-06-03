@@ -35,3 +35,5 @@ pandas
 numpy
 scikit-learn
 joblib
+geopy
+xgboost

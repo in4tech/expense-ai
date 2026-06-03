@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import MapView, { Marker, type Region } from "react-native-maps";
@@ -17,6 +16,7 @@ import { router } from "expo-router";
 import { ThemedText } from "@/components/themed-text";
 import { useLanguage } from "@/src/i18n";
 import { emitLocationPick } from "@/src/navigation/location-pick-bridge";
+import { useAppTheme } from "@/src/theme";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org";
 
@@ -46,8 +46,7 @@ const nominatimFetch = async (path: string): Promise<unknown> => {
 export default function MapPickLocationScreen() {
   const { dictionary } = useLanguage();
   const d = dictionary.mapPickLocation;
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { colors: c } = useAppTheme();
   const mapRef = useRef<MapView>(null);
 
   const [query, setQuery] = useState("");
@@ -57,16 +56,6 @@ export default function MapPickLocationScreen() {
   const [addressLabel, setAddressLabel] = useState("");
 
   const reverseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const c = {
-    screen: isDark ? "#0B0B0F" : "#F5F7FB",
-    card: isDark ? "#17181D" : "#FFFFFF",
-    cardMuted: isDark ? "#111217" : "#F8FAFC",
-    title: isDark ? "#F3F4F6" : "#0F172A",
-    hint: isDark ? "#94A3B8" : "#64748B",
-    primary: "#4F46E5",
-    border: isDark ? "#2B2D33" : "#E2E8F0",
-  };
 
   const reverseGeocode = useCallback(async (latitude: number, longitude: number) => {
     try {
