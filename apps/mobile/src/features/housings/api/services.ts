@@ -41,6 +41,10 @@ const parseHousingRow = (row: unknown): Housing => {
       water_fee: null,
       parking_fee: null,
       garbage_fee: null,
+      electricity_unit: null,
+      water_unit: null,
+      parking_unit: null,
+      garbage_unit: null,
       amenities: null,
     };
   }
@@ -58,6 +62,10 @@ const parseHousingRow = (row: unknown): Housing => {
     water_fee: toNullableNumber(item.water_fee),
     parking_fee: toNullableNumber(item.parking_fee),
     garbage_fee: toNullableNumber(item.garbage_fee),
+    electricity_unit: toNullableString(item.electricity_unit),
+    water_unit: toNullableString(item.water_unit),
+    parking_unit: toNullableString(item.parking_unit),
+    garbage_unit: toNullableString(item.garbage_unit),
     amenities: item.amenities ?? null,
   };
 };

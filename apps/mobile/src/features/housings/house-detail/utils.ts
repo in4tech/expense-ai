@@ -13,6 +13,17 @@ export const feeText = (fee: number | null) => {
   return VND.format(fee);
 };
 
+export const formatListingFee = (fee: number | null, freeLabel = "Free") => {
+  if (fee == null) return "—";
+  if (fee <= 0) return freeLabel;
+  return VND.format(fee);
+};
+
+export const formatListingPrice = (price: number | null, contactLabel: string) => {
+  if (price == null) return contactLabel;
+  return VND.format(price);
+};
+
 export const getHousingCoords = (housing: HousingDetail | undefined) => {
   const lat = housing?.latitude;
   const lng = housing?.longitude;

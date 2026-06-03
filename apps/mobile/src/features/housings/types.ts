@@ -10,6 +10,10 @@ export type Housing = {
   water_fee: number | null;
   parking_fee: number | null;
   garbage_fee: number | null;
+  electricity_unit: string | null;
+  water_unit: string | null;
+  parking_unit: string | null;
+  garbage_unit: string | null;
   amenities: unknown;
 };
 

@@ -155,11 +155,12 @@ newModel = Pipeline([
     (
         "xgregressor",
         XGBRegressor(
-            n_estimators=500,
-            max_depth=6,
-            learning_rate=0.05,
-            subsample=0.8,
-            colsample_bytree=0.8,
+            n_estimators=500, # Số lượng decision tree
+            max_depth=6, # Độ sâu của mỗi decision tree
+            learning_rate=0.05, # Tốc độ học
+            subsample=0.8, # Tỷ lệ mẫu được sử dụng để huấn luyện mỗi decision tree
+            colsample_bytree=0.8, # Tỷ lệ cột được sử dụng để huấn luyện mỗi decision tree
+            colsample_bylevel=0.8, # Tỷ lệ cột được sử dụng để huấn luyện mỗi nhánh
             random_state=42
         )
     )
