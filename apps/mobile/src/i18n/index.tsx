@@ -34,6 +34,7 @@ export type Dictionary = {
     heroDesc: string;
     inputTitle: string;
     inputSubtitle: string;
+    requiredHint: string;
     resultTitle: string;
     resultEmpty: string;
     resultHint: string;
@@ -42,16 +43,34 @@ export type Dictionary = {
     insightSegmentBudget: string;
     insightSegmentMidHigh: string;
     predictButton: string;
+    predicting: string;
     addressTapHint: string;
+    wifiLabel: string;
+    selectPlaceholder: string;
+    otherOption: string;
+    otherInputPlaceholder: string;
+    currencySuffix: string;
+    sectionFees: string;
+    sectionRoom: string;
     fields: {
-      medInc: { label: string; unit: string };
-      houseAge: { label: string; unit: string };
-      aveRooms: { label: string; unit: string };
-      aveBedrms: { label: string; unit: string };
-      population: { label: string; unit: string };
-      aveOccup: { label: string; unit: string };
+      electricity_fee: { label: string };
+      water_fee: { label: string };
+      card_fee: { label: string };
+      washing_machine_fee: { label: string };
+      parking_fee: { label: string };
+      garbage_fee: { label: string };
+      otherfee: { label: string };
       address: { label: string; unit: string };
     };
+  };
+  housingPredictResult: {
+    title: string;
+    summaryTitle: string;
+    coordinatesLabel: string;
+    roomAmenitiesTitle: string;
+    roomDetailsTitle: string;
+    noAmenities: string;
+    editAgain: string;
   };
   mapPickLocation: {
     title: string;
@@ -247,6 +266,7 @@ export type Dictionary = {
   devSettings: {
     title: string;
     showSampleToast: string;
+    testPredictFlow: string;
     toastSampleTitle: string;
     toastSampleDescription: string;
     appInfo: string;

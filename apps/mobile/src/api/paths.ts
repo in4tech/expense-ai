@@ -34,5 +34,6 @@ export const apiPaths = {
   housings: {
     root: housingsRoot,
     byId: (housingId: string) => `${housingsRoot}/${encodeURIComponent(housingId)}`,
+    predict: `${housingsRoot}/predict`,
   },
 } as const;

@@ -1,18 +1,20 @@
-from math import atan2, cos, radians, sin, sqrt
+import joblib
 import pandas as pd
-from pathlib import Path
 
-from geopy.geocoders import Nominatim
+from pathlib import Path
+from math import atan2, cos, radians, sin, sqrt
 
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from sklearn.cluster import KMeans
+ 
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 DATA_DIR = Path(__file__).resolve().parent
@@ -28,6 +30,7 @@ HOUSING_FEATURE_NUMBERIC_COLUMNS = [
     "otherfee",
     "latitude",
     "longitude",
+    "location_cluster",
     "distance_to_center",
     "price_per_m2"
 ]
@@ -108,6 +111,9 @@ housing["distance_to_center"] = housing.apply(
     axis=1
 )
 
+kmeans = KMeans(n_clusters=10, random_state=42)
+housing["location_cluster"] = kmeans.fit_predict(housing[["latitude", "longitude"]])
+
 rooms["room_area"] = rooms["room_area"].astype(str).str.extract(r"(\d+\.?\d*)")[0]
 rooms["room_area"] = pd.to_numeric(rooms["room_area"], errors="coerce").fillna(20).astype(int)
 housing["price_per_m2"] = (housing["price"] // rooms["room_area"])
@@ -117,6 +123,7 @@ rooms[ROOM_FEATURE_NUMBERIC_COLUMNS] = rooms[ROOM_FEATURE_NUMBERIC_COLUMNS].fill
 
 X = pd.concat([housing[HOUSING_FEATURE_NUMBERIC_COLUMNS], rooms], axis=1)
 y = housing[TARGET_COLUMN]
+
 
 numberic_transformer = Pipeline([
     (
@@ -180,3 +187,14 @@ rmse = mse ** 0.5
 r2 = r2_score(y_test, predictions)
 
 print(f"mae {mae:.4f} : rmse {rmse:.4f} : r2 {r2:.4f}")
+
+joblib.dump(newModel, DATA_DIR / "housing_model.pkl")
+joblib.dump(
+    {
+        "kmeans": kmeans,
+        "median_price_per_m2": int(housing["price_per_m2"].median()),
+    },
+    DATA_DIR / "location_artifacts.pkl",
+)
+
+print("Model saved")

@@ -3,6 +3,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   View,
 } from "react-native";
@@ -11,48 +12,89 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
+import {
+  predictHousingPrice,
+  type HousingPredictInput,
+} from "@/src/features/housings";
+import { buildPredictResultSnapshot } from "@/src/features/housings/build-predict-result-snapshot";
+import { FeeUnitSelector } from "@/src/features/housings/components/fee-unit-selector";
+import { PredictLoadingOverlay } from "@/src/features/housings/components/predict-loading-overlay";
+import { PredictRoomOptionField } from "@/src/features/housings/components/predict-room-option-field";
+import {
+  ROOM_BOOL_KEYS,
+  type RoomBoolKey,
+} from "@/src/features/housings/house-detail/constants";
+import {
+  areRequiredRoomOptionsFilled,
+  EMPTY_FEES,
+  EMPTY_ROOM_BOOL,
+  EMPTY_ROOM_OPTIONS,
+  FEE_KEYS,
+  FEE_PLACEHOLDERS_FORMATTED,
+  isAddressRequiredFilled,
+  PREDICT_LOADING_WAIT_MS,
+  PREDICT_REQUIRED_ROOM_DROPDOWN_KEYS,
+  type FeeKey,
+} from "@/src/features/housings/predict-form-constants";
+import {
+  EMPTY_FEE_UNITS,
+  getFeeUnitDisplay,
+  getSelectableFeeOptions,
+  isSelectableFeeUnit,
+  type FeeUnitsState,
+} from "@/src/features/housings/predict-fee-units";
+import {
+  getPredictRoomFieldOptions,
+  PREDICT_ROOM_DROPDOWN_KEYS,
+  resolveRoomOptionValue,
+  type PredictRoomDropdownKey,
+  type RoomOptionFieldState,
+} from "@/src/features/housings/predict-room-field-options";
+import { formatFeeDigits, parseFeeDigits } from "@/src/features/housings/predict-fee-format";
 import { useLanguage } from "@/src/i18n";
+import { setHousingPredictResult } from "@/src/navigation/housing-predict-result-bridge";
 import { href } from "@/src/navigation/href";
 import { subscribeLocationPick } from "@/src/navigation/location-pick-bridge";
+import { useAuth } from "@/src/providers/auth-context";
 import { useAppTheme } from "@/src/theme";
-
-type NumericFieldKey = "medInc" | "houseAge" | "aveRooms" | "aveBedrms" | "population" | "aveOccup";
-
-type FieldMeta = {
-  key: NumericFieldKey;
-  placeholder: string;
-};
-
-const INITIAL_NUMERIC: Record<NumericFieldKey, string> = {
-  medInc: "3.0",
-  houseAge: "20.0",
-  aveRooms: "5.0",
-  aveBedrms: "1.0",
-  population: "1000.0",
-  aveOccup: "3.0",
-};
-
-const FIELD_META: FieldMeta[] = [
-  { key: "medInc", placeholder: "3.0" },
-  { key: "houseAge", placeholder: "20" },
-  { key: "aveRooms", placeholder: "5.0" },
-  { key: "aveBedrms", placeholder: "1.0" },
-  { key: "population", placeholder: "1000" },
-  { key: "aveOccup", placeholder: "3.0" },
-];
 
 const toNumber = (value: string) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 };
 
+const trimOptional = (value: string) => {
+  const text = value.trim();
+  return text.length > 0 ? text : undefined;
+};
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 export default function HousingPredictScreen() {
-  const [numericFields, setNumericFields] = useState<Record<NumericFieldKey, string>>(INITIAL_NUMERIC);
+  const [fees, setFees] = useState<Record<FeeKey, string>>(EMPTY_FEES);
+  const [feeUnits, setFeeUnits] = useState<FeeUnitsState>(EMPTY_FEE_UNITS);
+  const [hasWifi, setHasWifi] = useState(false);
+  const [roomBool, setRoomBool] = useState<Record<RoomBoolKey, boolean>>(EMPTY_ROOM_BOOL);
+  const [roomOptions, setRoomOptions] =
+    useState<Record<PredictRoomDropdownKey, RoomOptionFieldState>>(EMPTY_ROOM_OPTIONS);
+  const [floor, setFloor] = useState("");
   const [address, setAddress] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  const [predictedPrice, setPredictedPrice] = useState<number | null>(null);
+  const [predictError, setPredictError] = useState<string | null>(null);
+  const [isPredicting, setIsPredicting] = useState(false);
+
+  const { getApiClient } = useAuth();
+  const client = useMemo(() => getApiClient(), [getApiClient]);
   const { dictionary } = useLanguage();
+  const hp = dictionary.housingPredict;
+  const hd = dictionary.houseDetail;
+  const roomLabels = dictionary.houseDetail.roomBool;
+  const roomStringLabels = dictionary.houseDetail.roomStrings;
+  const roomFieldOptions = useMemo(
+    () => getPredictRoomFieldOptions(hp.otherOption),
+    [hp.otherOption],
+  );
   const { colors: c } = useAppTheme();
 
   useEffect(() => {
@@ -63,42 +105,110 @@ export default function HousingPredictScreen() {
     });
   }, []);
 
-  const allValid = useMemo(() => {
-    const numsOk = FIELD_META.every((field) => toNumber(numericFields[field.key]) !== null);
-    const coordsOk = toNumber(latitude) !== null && toNumber(longitude) !== null;
-    const addrOk = address.trim().length > 0;
-    return numsOk && coordsOk && addrOk;
-  }, [numericFields, latitude, longitude, address]);
+  const addressValid = useMemo(
+    () => isAddressRequiredFilled(latitude, longitude),
+    [latitude, longitude],
+  );
 
-  const handleNumericChange = (key: NumericFieldKey, value: string) => {
-    setNumericFields((prev) => ({ ...prev, [key]: value }));
+  const requiredRoomOptionsValid = useMemo(
+    () => areRequiredRoomOptionsFilled(roomOptions),
+    [roomOptions],
+  );
+
+  const canPredict = addressValid && requiredRoomOptionsValid && !isPredicting;
+
+  const isRoomDropdownRequired = (key: PredictRoomDropdownKey) =>
+    PREDICT_REQUIRED_ROOM_DROPDOWN_KEYS.includes(key);
+
+  const buildPayload = (): HousingPredictInput => {
+    const lat = toNumber(latitude)!;
+    const lng = toNumber(longitude)!;
+
+    const payload: HousingPredictInput = {
+      electricity_fee: parseFeeDigits(fees.electricity_fee) ?? 0,
+      water_fee: parseFeeDigits(fees.water_fee) ?? 0,
+      card_fee: parseFeeDigits(fees.card_fee) ?? 0,
+      washing_machine_fee: parseFeeDigits(fees.washing_machine_fee) ?? 0,
+      parking_fee: parseFeeDigits(fees.parking_fee) ?? 0,
+      garbage_fee: parseFeeDigits(fees.garbage_fee) ?? 0,
+      otherfee: parseFeeDigits(fees.otherfee) ?? 0,
+      has_wifi: hasWifi,
+      latitude: lat,
+      longitude: lng,
+      kitchen: roomBool.kitchen,
+      desk: roomBool.desk,
+      bed: roomBool.bed,
+      elevator: roomBool.elevator,
+      bancony: roomBool.bancony,
+      fridge: roomBool.fridge,
+      hotwater: roomBool.hotwater,
+      air_conditioner: roomBool.air_conditioner,
+      wardrobe: roomBool.wardrobe,
+      window: roomBool.window,
+      attic: roomBool.attic,
+      skylight: roomBool.skylight,
+      kitchent_sink: roomBool.kitchent_sink,
+      drying_yard: resolveRoomOptionValue(roomOptions.drying_yard),
+      cooling_type: resolveRoomOptionValue(roomOptions.cooling_type),
+      parking_space: resolveRoomOptionValue(roomOptions.parking_space),
+      toilet: resolveRoomOptionValue(roomOptions.toilet),
+      gatelock: resolveRoomOptionValue(roomOptions.gatelock),
+      time: resolveRoomOptionValue(roomOptions.time),
+      room_area: resolveRoomOptionValue(roomOptions.room_area),
+      floor: trimOptional(floor),
+    };
+
+    return payload;
+  };
+
+  const handlePredict = async () => {
+    if (!canPredict) return;
+    setIsPredicting(true);
+    setPredictError(null);
+    try {
+      const lat = toNumber(latitude)!;
+      const lng = toNumber(longitude)!;
+      const result = await predictHousingPrice(client, buildPayload());
+      await wait(PREDICT_LOADING_WAIT_MS);
+      const snapshot = buildPredictResultSnapshot({
+        price: result.price,
+        fees,
+        feeUnits,
+        hasWifi,
+        address,
+        latitude: lat,
+        longitude: lng,
+        roomBool,
+        roomOptions,
+        floor,
+        roomFieldOptions,
+        labels: {
+          feeFields: hp.fields,
+          addressLabel: hp.fields.address.label,
+          wifiLabel: hp.wifiLabel,
+          yes: hd.yes,
+          no: hd.no,
+          dash: hd.unknown,
+          roomBool: roomLabels,
+          roomStrings: roomStringLabels,
+        },
+      });
+      setHousingPredictResult(snapshot);
+      router.push(href.mainHousingPredictResult);
+    } catch (error) {
+      setPredictError(error instanceof Error ? error.message : hp.resultEmpty);
+    } finally {
+      setIsPredicting(false);
+    }
   };
 
   const openMapPicker = () => {
     router.push(href.mainMapPickLocation);
   };
 
-  const handlePredict = () => {
-    const medInc = toNumber(numericFields.medInc) ?? 0;
-    const houseAge = toNumber(numericFields.houseAge) ?? 0;
-    const aveRooms = toNumber(numericFields.aveRooms) ?? 0;
-    const aveBedrms = toNumber(numericFields.aveBedrms) ?? 0;
-    const population = toNumber(numericFields.population) ?? 0;
-    const aveOccup = toNumber(numericFields.aveOccup) ?? 0;
-
-    const score =
-      medInc * 0.45 +
-      houseAge * 0.01 +
-      aveRooms * 0.18 -
-      aveBedrms * 0.12 -
-      population * 0.00003 -
-      aveOccup * 0.02;
-    const price = Math.max(0.4, score) * 100000;
-    setPredictedPrice(price);
-  };
-
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={["top", "bottom"]}>
+      <PredictLoadingOverlay visible={isPredicting} message={hp.predicting} />
       <View style={styles.header}>
         <Pressable
           onPress={() => router.back()}
@@ -106,9 +216,7 @@ export default function HousingPredictScreen() {
         >
           <Ionicons name="chevron-back" size={18} color={c.title} />
         </Pressable>
-        <ThemedText style={[styles.headerTitle, { color: c.title }]}>
-          {dictionary.housingPredict.title}
-        </ThemedText>
+        <ThemedText style={[styles.headerTitle, { color: c.title }]}>{hp.title}</ThemedText>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -117,141 +225,184 @@ export default function HousingPredictScreen() {
             <Ionicons name="sparkles-outline" size={18} color={c.primary} />
           </View>
           <View style={styles.heroTextWrap}>
-            <ThemedText style={[styles.heroTitle, { color: c.title }]}>
-              {dictionary.housingPredict.heroTitle}
-            </ThemedText>
-            <ThemedText style={[styles.heroDesc, { color: c.hint }]}>
-              {dictionary.housingPredict.heroDesc}
-            </ThemedText>
+            <ThemedText style={[styles.heroTitle, { color: c.title }]}>{hp.heroTitle}</ThemedText>
+            <ThemedText style={[styles.heroDesc, { color: c.hint }]}>{hp.heroDesc}</ThemedText>
           </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: c.card, borderColor: c.border }]}>
           <View style={styles.cardHead}>
-            <ThemedText style={[styles.cardTitle, { color: c.title }]}>
-              {dictionary.housingPredict.inputTitle}
-            </ThemedText>
-            <ThemedText style={[styles.cardSubtitle, { color: c.hint }]}>
-              {dictionary.housingPredict.inputSubtitle}
-            </ThemedText>
+            <ThemedText style={[styles.cardTitle, { color: c.title }]}>{hp.inputTitle}</ThemedText>
+            <ThemedText style={[styles.cardSubtitle, { color: c.hint }]}>{hp.inputSubtitle}</ThemedText>
           </View>
+          <ThemedText style={[styles.requiredHint, { color: c.hint }]}>{hp.requiredHint}</ThemedText>
+
+          <ThemedText style={[styles.sectionLabel, { color: c.title }]}>{hp.sectionFees}</ThemedText>
           <View style={styles.fieldGrid}>
-            {FIELD_META.map((field) => (
-              <View key={field.key} style={styles.fieldWrap}>
+            {FEE_KEYS.map((key) => (
+              <View key={key} style={styles.fieldWrap}>
                 <View style={styles.labelRow}>
-                  <ThemedText style={[styles.label, { color: c.hint }]}>
-                    {dictionary.housingPredict.fields[field.key].label}
+                  <ThemedText style={[styles.label, { color: c.hint }]} numberOfLines={1}>
+                    {hp.fields[key].label}
                   </ThemedText>
-                  <ThemedText style={[styles.unit, { color: c.hint }]}>
-                    {dictionary.housingPredict.fields[field.key].unit}
+                  <View style={styles.unitSlot}>
+                    {isSelectableFeeUnit(key) ? (
+                      <FeeUnitSelector
+                        options={getSelectableFeeOptions(key)}
+                        value={feeUnits[key]}
+                        onChange={(value) =>
+                          setFeeUnits((prev) => ({ ...prev, [key]: value }))
+                        }
+                      />
+                    ) : (
+                      <ThemedText style={[styles.unit, { color: c.hint }]} numberOfLines={1}>
+                        {getFeeUnitDisplay(key, feeUnits)}
+                      </ThemedText>
+                    )}
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.feeInputWrap,
+                    { borderColor: c.border, backgroundColor: c.cardMuted },
+                  ]}
+                >
+                  <TextInput
+                    value={fees[key]}
+                    onChangeText={(value) =>
+                      setFees((prev) => ({ ...prev, [key]: formatFeeDigits(value) }))
+                    }
+                    keyboardType="number-pad"
+                    style={[styles.feeInput, { color: c.title }]}
+                    placeholder={FEE_PLACEHOLDERS_FORMATTED[key]}
+                    placeholderTextColor={c.hint}
+                  />
+                  <ThemedText style={[styles.feeInputSuffix, { color: c.hint }]}>
+                    {hp.currencySuffix}
                   </ThemedText>
                 </View>
-                <TextInput
-                  value={numericFields[field.key]}
-                  onChangeText={(value) => handleNumericChange(field.key, value)}
-                  keyboardType="decimal-pad"
-                  style={[
-                    styles.input,
-                    {
-                      borderColor: c.border,
-                      color: c.title,
-                      backgroundColor: c.cardMuted,
-                    },
-                  ]}
-                  placeholder={field.placeholder}
-                  placeholderTextColor={c.hint}
-                />
               </View>
             ))}
           </View>
 
-          <View style={styles.addressBlock}>
-            <View style={styles.labelRow}>
-              <ThemedText style={[styles.label, { color: c.hint }]}>
-                {dictionary.housingPredict.fields.address.label}
+          <View style={[styles.wifiRow, { borderColor: c.border }]}>
+            <ThemedText style={[styles.wifiLabel, { color: c.title }]}>{hp.wifiLabel}</ThemedText>
+            <Switch
+              value={hasWifi}
+              onValueChange={setHasWifi}
+              trackColor={{ false: c.border, true: c.primary }}
+            />
+          </View>
+
+          <View style={styles.addressLabelRow}>
+            <ThemedText style={[styles.sectionLabel, { color: c.title }]}>
+              {hp.fields.address.label}
+            </ThemedText>
+            <ThemedText style={[styles.requiredMark, { color: c.danger }]}> *</ThemedText>
+          </View>
+          <Pressable
+            onPress={openMapPicker}
+            style={[styles.addressPressable, { borderColor: c.border, backgroundColor: c.cardMuted }]}
+          >
+            <Ionicons name="map-outline" size={18} color={c.primary} />
+            <View style={styles.addressTextCol}>
+              <ThemedText
+                style={[styles.addressMain, { color: address ? c.title : c.hint }]}
+                numberOfLines={2}
+              >
+                {address || hp.addressTapHint}
               </ThemedText>
-              <ThemedText style={[styles.unit, { color: c.hint }]}>
-                {dictionary.housingPredict.fields.address.unit}
-              </ThemedText>
+              {addressValid ? (
+                <ThemedText style={[styles.addressCoords, { color: c.hint }]} numberOfLines={1}>
+                  {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
+                </ThemedText>
+              ) : null}
             </View>
-            <Pressable
-              onPress={openMapPicker}
-              style={[
-                styles.addressPressable,
-                {
-                  borderColor: c.border,
-                  backgroundColor: c.cardMuted,
-                },
-              ]}
-            >
-              <Ionicons name="map-outline" size={18} color={c.primary} />
-              <View style={styles.addressTextCol}>
+            <Ionicons name="chevron-forward" size={18} color={c.hint} />
+          </Pressable>
+
+          <ThemedText style={[styles.sectionLabel, { color: c.title, marginTop: 8 }]}>
+            {hp.sectionRoom}
+          </ThemedText>
+          <View style={styles.roomBoolGrid}>
+            {ROOM_BOOL_KEYS.map((key) => (
+              <Pressable
+                key={key}
+                onPress={() => setRoomBool((prev) => ({ ...prev, [key]: !prev[key] }))}
+                style={[
+                  styles.roomBoolChip,
+                  {
+                    borderColor: roomBool[key] ? c.primary : c.border,
+                    backgroundColor: roomBool[key] ? c.chipOn : c.cardMuted,
+                  },
+                ]}
+              >
                 <ThemedText
-                  style={[styles.addressMain, { color: address ? c.title : c.hint }]}
+                  style={[
+                    styles.roomBoolText,
+                    { color: roomBool[key] ? c.chipTextOn : c.hint },
+                  ]}
                   numberOfLines={2}
                 >
-                  {address || dictionary.housingPredict.addressTapHint}
+                  {roomLabels[key]}
                 </ThemedText>
-                {latitude && longitude ? (
-                  <ThemedText style={[styles.addressCoords, { color: c.hint }]} numberOfLines={1}>
-                    {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
-                  </ThemedText>
-                ) : null}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={c.hint} />
-            </Pressable>
+              </Pressable>
+            ))}
           </View>
-        </View>
-
-        <View style={[styles.resultCard, { backgroundColor: c.successBg, borderColor: c.border }]}>
-          <View style={styles.resultTop}>
-            <ThemedText style={[styles.resultLabel, { color: c.successText }]}>
-              {dictionary.housingPredict.resultTitle}
-            </ThemedText>
-            <Ionicons name="analytics-outline" size={16} color={c.successText} />
-          </View>
-          <ThemedText style={[styles.resultValue, { color: c.successText }]}>
-            {predictedPrice != null
-              ? `$${predictedPrice.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-              : dictionary.housingPredict.resultEmpty}
-          </ThemedText>
-          <ThemedText style={[styles.resultHint, { color: c.successText }]}>
-            {dictionary.housingPredict.resultHint}
-          </ThemedText>
-        </View>
-
-        {predictedPrice == null ? null : (
-          <View style={[styles.resultCard, { backgroundColor: c.successBg, borderColor: c.border }]}>
-            <ThemedText style={[styles.resultLabel, { color: c.successText }]}>
-              {dictionary.housingPredict.insightTitle}
-            </ThemedText>
-            <ThemedText style={[styles.resultHint, { color: c.successText }]}>
-              {dictionary.housingPredict.insightPrefix}{" "}
-              <ThemedText style={[styles.resultHintStrong, { color: c.successText }]}>
-                {predictedPrice > 350000
-                  ? dictionary.housingPredict.insightSegmentMidHigh
-                  : dictionary.housingPredict.insightSegmentBudget}
+          <View style={styles.roomStringList}>
+            {PREDICT_ROOM_DROPDOWN_KEYS.map((key) => (
+              <PredictRoomOptionField
+                key={key}
+                label={roomStringLabels[key]}
+                required={isRoomDropdownRequired(key)}
+                placeholder={hp.selectPlaceholder}
+                otherPlaceholder={hp.otherInputPlaceholder}
+                options={roomFieldOptions[key]}
+                state={roomOptions[key]}
+                onChange={(state) =>
+                  setRoomOptions((prev) => ({ ...prev, [key]: state }))
+                }
+              />
+            ))}
+            <View style={styles.fieldWrapFull}>
+              <ThemedText style={[styles.label, { color: c.hint }]}>
+                {roomStringLabels.floor}
               </ThemedText>
-              .
-            </ThemedText>
+              <TextInput
+                value={floor}
+                onChangeText={setFloor}
+                style={[
+                  styles.input,
+                  { borderColor: c.border, color: c.title, backgroundColor: c.cardMuted },
+                ]}
+                placeholder={roomStringLabels.floor}
+                placeholderTextColor={c.hint}
+              />
+            </View>
           </View>
-        )}
+        </View>
+
+        {predictError ? (
+          <View style={[styles.errorBanner, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Ionicons name="alert-circle-outline" size={18} color={c.hint} />
+            <ThemedText style={[styles.errorText, { color: c.title }]}>{predictError}</ThemedText>
+          </View>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.footer, { backgroundColor: c.screen, borderColor: c.border }]}>
         <Pressable
-          onPress={handlePredict}
-          disabled={!allValid}
+          onPress={() => void handlePredict()}
+          disabled={!canPredict}
           style={[
             styles.predictBtn,
-            {
-              backgroundColor: allValid ? c.primary : c.border,
-              opacity: allValid ? 1 : 0.7,
-            },
+            { backgroundColor: canPredict ? c.primary : c.border, opacity: canPredict ? 1 : 0.7 },
           ]}
         >
           <Ionicons name="sparkles-outline" size={16} color="#FFFFFF" />
-          <ThemedText style={styles.predictBtnText}>{dictionary.housingPredict.predictButton}</ThemedText>
+          <ThemedText style={styles.predictBtnText}>
+            {isPredicting ? hp.predicting : hp.predictButton}
+          </ThemedText>
         </Pressable>
       </View>
     </SafeAreaView>
@@ -276,11 +427,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 22, fontWeight: "700" },
-  content: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    gap: 12,
-  },
+  content: { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   heroCard: {
     borderWidth: 1,
     borderRadius: 16,
@@ -299,12 +446,7 @@ const styles = StyleSheet.create({
   heroTextWrap: { flex: 1, gap: 3 },
   heroTitle: { fontSize: 15, fontWeight: "700" },
   heroDesc: { fontSize: 12, lineHeight: 17 },
-  card: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 14,
-    gap: 10,
-  },
+  card: { borderWidth: 1, borderRadius: 16, padding: 14, gap: 10 },
   cardHead: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -313,14 +455,69 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontSize: 16, fontWeight: "700" },
   cardSubtitle: { fontSize: 12, fontWeight: "500" },
+  requiredHint: { fontSize: 11, lineHeight: 15 },
+  addressLabelRow: { flexDirection: "row", alignItems: "center", marginTop: 8 },
+  requiredMark: { fontSize: 13, fontWeight: "700" },
+  sectionLabel: { fontSize: 13, fontWeight: "700" },
   fieldGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    columnGap: 10,
     rowGap: 10,
   },
-  fieldWrap: { gap: 6, width: "48.5%" },
-  addressBlock: { gap: 6, marginTop: 4 },
+  fieldWrap: { gap: 6, width: "48%" },
+  fieldWrapFull: { gap: 6, width: "100%" },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    height: 28,
+  },
+  label: { flex: 1, fontSize: 12, fontWeight: "500" },
+  unitSlot: {
+    width: 54,
+    height: 26,
+    justifyContent: "center",
+    alignItems: "stretch",
+  },
+  unit: {
+    fontSize: 11,
+    fontWeight: "600",
+    opacity: 0.85,
+    textAlign: "right",
+  },
+  input: {
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  feeInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    height: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingRight: 10,
+  },
+  feeInput: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 0,
+    fontSize: 14,
+    textAlignVertical: "center",
+  },
+  feeInputSuffix: { fontSize: 11, fontWeight: "600", alignSelf: "center" },
+  wifiRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  wifiLabel: { fontSize: 14, fontWeight: "600" },
   addressPressable: {
     minHeight: 44,
     borderWidth: 1,
@@ -334,16 +531,38 @@ const styles = StyleSheet.create({
   addressTextCol: { flex: 1, gap: 2 },
   addressMain: { fontSize: 14, lineHeight: 19 },
   addressCoords: { fontSize: 11 },
-  labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
-  label: { fontSize: 12, fontWeight: "500" },
-  unit: { fontSize: 11, fontWeight: "500", opacity: 0.85 },
-  input: {
-    height: 44,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    fontSize: 14,
+  roomBoolGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 10,
+    rowGap: 10,
   },
+  roomBoolChip: {
+    width: "48%",
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roomBoolText: {
+    fontSize: 11,
+    fontWeight: "600",
+    textAlign: "center",
+    width: "100%",
+  },
+  roomStringList: { gap: 8 },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+  },
+  errorText: { flex: 1, fontSize: 13, lineHeight: 18 },
   predictBtn: {
     height: 44,
     borderRadius: 10,
@@ -353,21 +572,5 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   predictBtnText: { color: "#FFFFFF", fontWeight: "700" },
-  resultCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
-    gap: 6,
-  },
-  resultTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  resultLabel: { fontSize: 13, fontWeight: "600" },
-  resultValue: { fontSize: 22, fontWeight: "800" },
-  resultHint: { fontSize: 12, opacity: 0.9 },
-  resultHintStrong: { fontWeight: "700" },
-  footer: {
-    borderTopWidth: 1,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
+  footer: { borderTopWidth: 1, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6 },
 });

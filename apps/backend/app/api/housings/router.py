@@ -4,12 +4,13 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from app.api.housings.schemas import HousingPredictRequest, HousingPredictResponse
+from app.services.predict_service import predict_price
 from app.db.models.housing import Housing
 from app.db.models.room import Room
 from app.db.session import DbSession
 
 router = APIRouter()
-
 
 def _housing_row(housing: Housing) -> dict:
     return {
@@ -110,3 +111,14 @@ async def get_housings(
         "limit": limit,
         "offset": offset,
     }
+
+@router.post("/predict", response_model=HousingPredictResponse)
+async def housing_prediction(body: HousingPredictRequest):
+    try:
+        price = predict_price(body.model_dump())
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return HousingPredictResponse(price=price)
