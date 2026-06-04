@@ -25,7 +25,7 @@ export type ChatComposerInputRowProps = {
 };
 
 /** Switch input pill to a rounded rect once content grows past one visual line. */
-const EXPANDED_CONTENT_HEIGHT_PX = 44;
+const EXPANDED_CONTENT_HEIGHT_PX = 48;
 
 export function ChatComposerInputRow({
   colors: c,
@@ -63,7 +63,7 @@ export function ChatComposerInputRow({
         hitSlop={10}
         style={[styles.attachButton, isSending && styles.buttonDisabled]}
       >
-        <Ionicons name="add-circle-outline" size={26} color={c.topIcon} />
+        <Ionicons name="add-circle-outline" size={28} color={c.topIcon} />
       </Pressable>
 
       <TextInput
@@ -96,7 +96,7 @@ export function ChatComposerInputRow({
         disabled={!canSend}
         onPress={handleSendPress}
       >
-        <Ionicons name="send" size={16} color="#fff" />
+        <Ionicons name="send" size={18} color="#fff" />
       </Pressable>
     </View>
   );

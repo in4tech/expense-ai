@@ -1,4 +1,4 @@
-import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { ThemedText } from "@/components/themed-text";
@@ -8,17 +8,10 @@ type HomeHeaderProps = {
   greeting: string;
   userName: string;
   avatarUri?: string | null;
-  searchPlaceholder: string;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
   onProfilePress?: () => void;
   onPredictPress?: () => void;
-  hasActiveFilters?: boolean;
-  onFilterPress?: () => void;
-  filterAccessibilityLabel?: string;
 };
 
-const SEARCH_ROW_HEIGHT = 44;
 const AVATAR_SIZE = 48;
 const ICON_BUTTON_SIZE = 34;
 
@@ -26,14 +19,8 @@ export function HomeHeader({
   greeting,
   userName,
   avatarUri,
-  searchPlaceholder,
-  searchQuery,
-  onSearchQueryChange,
   onProfilePress,
   onPredictPress,
-  hasActiveFilters = false,
-  onFilterPress,
-  filterAccessibilityLabel,
 }: HomeHeaderProps) {
   const { colors: c, isDark } = useAppTheme();
 
@@ -72,49 +59,6 @@ export function HomeHeader({
           </Pressable>
         ) : null}
       </View>
-
-      <View style={styles.searchRow}>
-        <View
-          style={[
-            styles.searchField,
-            { borderColor: c.border, backgroundColor: isDark ? c.card : "#FFFFFF" },
-          ]}
-        >
-          <Ionicons name="search" size={16} color={c.hint} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={onSearchQueryChange}
-            placeholder={searchPlaceholder}
-            placeholderTextColor={c.hint}
-            style={[styles.searchInput, { color: c.title }]}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            clearButtonMode="while-editing"
-          />
-        </View>
-        {onFilterPress ? (
-          <Pressable
-            onPress={onFilterPress}
-            accessibilityRole="button"
-            accessibilityLabel={filterAccessibilityLabel}
-            style={[
-              styles.iconButton,
-              styles.filterButtonOuter,
-              {
-                borderColor: c.border,
-                backgroundColor: hasActiveFilters ? c.chipBg : c.card,
-              },
-            ]}
-          >
-            <Ionicons
-              name="options-outline"
-              size={18}
-              color={hasActiveFilters ? c.primary : c.title}
-            />
-          </Pressable>
-        ) : null}
-      </View>
     </View>
   );
 }
@@ -122,7 +66,7 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 4,
+    paddingBottom: 0,
     paddingTop: 8,
   },
   topRow: {
@@ -172,29 +116,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
-  },
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginTop: 4,
-  },
-  searchField: {
-    flex: 1,
-    height: SEARCH_ROW_HEIGHT,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  filterButtonOuter: {
-    flexShrink: 0,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: 0,
   },
 });

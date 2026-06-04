@@ -7,22 +7,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/components/themed-text";
 import { StackIconButton } from "@/src/components/stack-icon-button";
 import {
-  HomeFilterSheet,
   HomeListEmpty,
+  HomeListingSearchFilter,
   HomeListingsTabs,
-  HomeSearchField,
   HousingListCard,
   useHomeHousings,
-  EMPTY_HOME_HOUSING_FILTERS,
-  countActiveHomeFilters,
-  type HomeHousingFilters,
+  useHomeListingFilters,
 } from "@/src/features/housings/home";
 import { MOCK_RECOMMENDATION_HOUSINGS } from "@/src/features/housings/home/data/mock-recommendation-housings";
 import {
   consumeHomeListingsSnapshot,
   type HomeListingsTab,
 } from "@/src/features/housings/home/navigation/home-listings-bridge";
-import { filterHousings } from "@/src/features/housings/home/utils/filter-housings";
 import { sortHousingsByPopularity } from "@/src/features/housings/home/utils/pick-popular-housings";
 import { HouseDetailCenterState } from "@/src/features/housings/house-detail";
 import type { Housing } from "@/src/features/housings/types";
@@ -39,11 +35,7 @@ export default function HomeListingsScreen() {
   const [activeTab, setActiveTab] = useState<HomeListingsTab>(
     snapshot?.initialTab ?? "all",
   );
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<HomeHousingFilters>(EMPTY_HOME_HOUSING_FILTERS);
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-
-  const activeFilterCount = countActiveHomeFilters(filters);
+  const listingFilters = useHomeListingFilters(home);
 
   const apiHousings = useMemo(
     () => snapshot?.housings ?? data?.housings ?? [],
@@ -51,8 +43,8 @@ export default function HomeListingsScreen() {
   );
 
   const filteredApiHousings = useMemo(
-    () => filterHousings(apiHousings, searchQuery, filters),
-    [apiHousings, filters, searchQuery],
+    () => listingFilters.applyToHousings(apiHousings),
+    [apiHousings, listingFilters.applyToHousings],
   );
 
   const tabHousings = useMemo(() => {
@@ -60,11 +52,11 @@ export default function HomeListingsScreen() {
       case "popular":
         return sortHousingsByPopularity(filteredApiHousings);
       case "recommendation":
-        return filterHousings(MOCK_RECOMMENDATION_HOUSINGS, searchQuery, filters);
+        return listingFilters.applyToHousings(MOCK_RECOMMENDATION_HOUSINGS);
       default:
         return filteredApiHousings;
     }
-  }, [activeTab, filteredApiHousings, filters, searchQuery]);
+  }, [activeTab, filteredApiHousings, listingFilters.applyToHousings]);
 
   const listingTabs = useMemo(
     () =>
@@ -75,12 +67,6 @@ export default function HomeListingsScreen() {
       ] satisfies { id: HomeListingsTab; label: string }[],
     [home.listingsTabAll, home.popularTitle, home.recommendationTitle],
   );
-
-  const emptyMessage = searchQuery.trim()
-    ? home.searchNoResults
-    : activeFilterCount > 0
-      ? home.filterNoResults
-      : home.empty;
 
   const renderItem = useCallback(
     ({ item }: { item: Housing }) => (
@@ -119,27 +105,21 @@ export default function HomeListingsScreen() {
         </ThemedText>
       </View>
 
-      <HomeSearchField
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        placeholder={home.searchPlaceholder}
-        hasActiveFilters={activeFilterCount > 0}
-        onFilterPress={() => setFilterSheetOpen(true)}
-        filterAccessibilityLabel={home.filterTitle}
+      <HomeListingSearchFilter
+        labels={home}
+        searchQuery={listingFilters.searchQuery}
+        onSearchQueryChange={listingFilters.setSearchQuery}
+        filters={listingFilters.filters}
+        onFiltersChange={listingFilters.setFilters}
+        filterSheetOpen={listingFilters.filterSheetOpen}
+        onFilterSheetOpenChange={listingFilters.setFilterSheetOpen}
+        activeFilterCount={listingFilters.activeFilterCount}
       />
 
       <HomeListingsTabs
         tabs={listingTabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-      />
-
-      <HomeFilterSheet
-        open={filterSheetOpen}
-        onOpenChange={setFilterSheetOpen}
-        filters={filters}
-        onChange={setFilters}
-        labels={home}
       />
 
       {showLoading ? (
@@ -170,7 +150,7 @@ export default function HomeListingsScreen() {
               />
             ) : undefined
           }
-          ListEmptyComponent={<HomeListEmpty message={emptyMessage} />}
+          ListEmptyComponent={<HomeListEmpty message={listingFilters.emptyMessage} />}
         />
       )}
     </SafeAreaView>

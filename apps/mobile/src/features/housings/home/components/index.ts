@@ -2,6 +2,7 @@ export { HomeFeeCell } from "./home-fee-cell";
 export { HomeFilterSheet } from "./home-filter-sheet";
 export { HomeHeader } from "./home-header";
 export { HomeListEmpty } from "./home-list-empty";
+export { HomeListingSearchFilter } from "./home-listing-search-filter";
 export { HomeListingsTabs } from "./home-listings-tabs";
 export { HomePopularSection } from "./home-popular-section";
 export { HomeSearchField } from "./home-search-field";

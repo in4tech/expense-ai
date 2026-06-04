@@ -5,19 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/src/features/auth";
 import {
-  HomeFilterSheet,
   HomeHeader,
   HomeListEmpty,
+  HomeListingSearchFilter,
   HomePopularSection,
   useHomeHousings,
-  EMPTY_HOME_HOUSING_FILTERS,
-  countActiveHomeFilters,
-  type HomeHousingFilters,
+  useHomeListingFilters,
 } from "@/src/features/housings/home";
 import { MOCK_RECOMMENDATION_HOUSINGS } from "@/src/features/housings/home/data/mock-recommendation-housings";
 import { setHomeListingsSnapshot } from "@/src/features/housings/home/navigation/home-listings-bridge";
 import { getHomeGreeting } from "@/src/features/housings/home/utils/get-home-greeting";
-import { filterHousings } from "@/src/features/housings/home/utils/filter-housings";
 import { pickPopularHousings } from "@/src/features/housings/home/utils/pick-popular-housings";
 import { HouseDetailCenterState } from "@/src/features/housings/house-detail";
 import { getDefaultAvatarUri, loadProfile } from "@/src/features/profile";
@@ -32,23 +29,19 @@ export default function HomeScreen() {
   const { data, isLoading, isError, error, refetch } = useHomeHousings();
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [profileName, setProfileName] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filters, setFilters] = useState<HomeHousingFilters>(
-    EMPTY_HOME_HOUSING_FILTERS,
-  );
-  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+
+  const home = dictionary.home;
+  const listingFilters = useHomeListingFilters(home);
 
   const housings = data?.housings ?? [];
-  const activeFilterCount = countActiveHomeFilters(filters);
   const filteredHousings = useMemo(
-    () => filterHousings(housings, searchQuery, filters),
-    [housings, searchQuery, filters],
+    () => listingFilters.applyToHousings(housings),
+    [housings, listingFilters.applyToHousings],
   );
   const previewListings = useMemo(
     () => pickPopularHousings(filteredHousings),
     [filteredHousings],
   );
-  const home = dictionary.home;
   const greeting = useMemo(() => getHomeGreeting(home), [home]);
   const userName = useMemo(() => {
     const trimmed = profileName.trim();
@@ -101,12 +94,6 @@ export default function HomeScreen() {
     router.push(href.mainHomeListings);
   }, [filteredHousings]);
 
-  const emptyMessage = searchQuery.trim()
-    ? home.searchNoResults
-    : activeFilterCount > 0
-      ? home.filterNoResults
-      : home.empty;
-
   const errorMessage = error instanceof Error ? error.message : home.loadFailed;
 
   return (
@@ -118,22 +105,19 @@ export default function HomeScreen() {
         greeting={greeting}
         userName={userName}
         avatarUri={displayAvatarUri}
-        searchPlaceholder={home.searchPlaceholder}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
         onProfilePress={() => router.push(href.mainProfile)}
         onPredictPress={() => router.push(href.mainHousingPredict)}
-        hasActiveFilters={activeFilterCount > 0}
-        onFilterPress={() => setFilterSheetOpen(true)}
-        filterAccessibilityLabel={home.filterTitle}
       />
 
-      <HomeFilterSheet
-        open={filterSheetOpen}
-        onOpenChange={setFilterSheetOpen}
-        filters={filters}
-        onChange={setFilters}
+      <HomeListingSearchFilter
         labels={home}
+        searchQuery={listingFilters.searchQuery}
+        onSearchQueryChange={listingFilters.setSearchQuery}
+        filters={listingFilters.filters}
+        onFiltersChange={listingFilters.setFilters}
+        filterSheetOpen={listingFilters.filterSheetOpen}
+        onFilterSheetOpenChange={listingFilters.setFilterSheetOpen}
+        activeFilterCount={listingFilters.activeFilterCount}
       />
 
       {isLoading ? (
@@ -169,7 +153,7 @@ export default function HomeScreen() {
               listKeyPrefix="listing"
             />
           ) : (
-            <HomeListEmpty message={emptyMessage} />
+            <HomeListEmpty message={listingFilters.emptyMessage} />
           )}
         </View>
       )}

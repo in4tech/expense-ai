@@ -1,6 +1,7 @@
 import {
   countActiveHomeFilters,
   EMPTY_HOME_HOUSING_FILTERS,
+  matchesHomePriceRange,
   type HomeHousingFilters,
 } from "@/src/features/housings/home/types/home-filters";
 import type { Housing } from "@/src/features/housings/types";
@@ -8,24 +9,28 @@ import type { Housing } from "@/src/features/housings/types";
 export type { HomeHousingFilters };
 export { EMPTY_HOME_HOUSING_FILTERS, countActiveHomeFilters };
 
+function hasParkingInfo(housing: Housing): boolean {
+  return (
+    housing.parking_fee != null || Boolean(housing.parking_unit?.trim())
+  );
+}
+
 function matchesFilters(housing: Housing, filters: HomeHousingFilters): boolean {
+  if (
+    filters.priceRanges.length > 0 &&
+    !filters.priceRanges.some((range) =>
+      matchesHomePriceRange(housing.price, range),
+    )
+  ) {
+    return false;
+  }
   if (filters.hasPhotos && housing.image_urls.length === 0) {
     return false;
   }
   if (filters.hasWifi && housing.has_wifi !== true) {
     return false;
   }
-  if (filters.hasPrice && (housing.price == null || housing.price <= 0)) {
-    return false;
-  }
-  if (filters.hasAddress && !(housing.address?.trim())) {
-    return false;
-  }
-  if (
-    filters.hasParking &&
-    housing.parking_fee == null &&
-    !(housing.parking_unit?.trim())
-  ) {
+  if (filters.hasParking && !hasParkingInfo(housing)) {
     return false;
   }
   return true;

@@ -119,6 +119,7 @@ export function HousingListCard({
         ) : null}
 
         <View style={styles.priceBadge} pointerEvents="none">
+          <Ionicons name="cash-sharp" size={14} color="#F8FAFC" />
           <ThemedText style={styles.priceBadgeText} numberOfLines={1}>
             {displayPrice}
           </ThemedText>
@@ -209,6 +210,9 @@ const styles = StyleSheet.create({
     top: 14,
     right: 14,
     maxWidth: "52%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     backgroundColor: "rgba(15, 23, 42, 0.88)",
     borderRadius: 999,
     paddingHorizontal: 12,
@@ -216,11 +220,11 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   priceBadgeText: {
+    flexShrink: 1,
     color: "#F8FAFC",
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: -0.2,
-    textAlign: "right",
   },
   infoBar: {
     position: "absolute",

@@ -14,7 +14,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        sceneStyle: { paddingBottom: 90 },
+        sceneStyle: { paddingBottom: 85 },
       }}>
       <Tabs.Screen
         name="home"

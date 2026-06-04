@@ -48,12 +48,19 @@ export type Dictionary = {
     filterClearAll: string;
     filterDone: string;
     filterNoResults: string;
-    filterOptions: {
-      hasPhotos: string;
+    filterPriceSection: string;
+    filterAmenitySection: string;
+    filterPriceRanges: {
+      under3m: string;
+      '3to5m': string;
+      '5to7m': string;
+      '7to10m': string;
+      above10m: string;
+    };
+    filterAmenities: {
       hasWifi: string;
-      hasPrice: string;
-      hasAddress: string;
       hasParking: string;
+      hasPhotos: string;
     };
   };
   housingPredict: {
