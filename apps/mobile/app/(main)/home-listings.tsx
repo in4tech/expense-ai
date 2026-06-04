@@ -11,6 +11,7 @@ import {
   HomeListingSearchFilter,
   HomeListingsTabs,
   HousingListCard,
+  HousingPopularCard,
   useHomeHousings,
   useHomeListingFilters,
 } from "@/src/features/housings/home";
@@ -68,13 +69,32 @@ export default function HomeListingsScreen() {
     [home.listingsTabAll, home.popularTitle, home.recommendationTitle],
   );
 
+  const favoriteListingLabel = dictionary.houseDetail.favoriteListing;
+
   const renderItem = useCallback(
     ({ item }: { item: Housing }) => (
       <View style={styles.listItem}>
-        <HousingListCard housing={item} copy={home} contactForPrice={contactForPrice} />
+        {activeTab === "recommendation" ? (
+          <HousingPopularCard
+            housing={item}
+            copy={home}
+            contactForPrice={contactForPrice}
+            layout="full"
+            showSaveButton
+            saveAccessibilityLabel={favoriteListingLabel}
+          />
+        ) : (
+          <HousingListCard
+            housing={item}
+            copy={home}
+            contactForPrice={contactForPrice}
+            showSaveButton
+            saveAccessibilityLabel={favoriteListingLabel}
+          />
+        )}
       </View>
     ),
-    [contactForPrice, home],
+    [activeTab, contactForPrice, favoriteListingLabel, home],
   );
 
   const keyExtractor = useCallback((item: Housing) => item.id, []);

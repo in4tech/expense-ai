@@ -20,6 +20,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     garbage_unit: "tháng",
     amenities: null,
     image_urls: ["https://picsum.photos/id/1018/800/600"],
+    updated_at: null,
   },
   {
     id: "mock-rec-2",
@@ -39,6 +40,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     garbage_unit: "tháng",
     amenities: null,
     image_urls: ["https://picsum.photos/id/1066/800/600"],
+    updated_at: null,
   },
   {
     id: "mock-rec-3",
@@ -58,6 +60,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     garbage_unit: "tháng",
     amenities: null,
     image_urls: ["https://picsum.photos/id/1033/800/600"],
+    updated_at: null,
   },
 ];
 

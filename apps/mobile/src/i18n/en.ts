@@ -194,8 +194,8 @@ export const en = {
     subtitle:
       'Talk with your finance assistant. Streams from POST /conversations/{id}/chat-stream (SSE).',
     emptyTitle: 'Start a conversation',
-    emptyBody: 'Use quick prompts below or type your question in the message box.',
-    typingHint: 'Tap prompt or type below to start chatting...',
+    emptyBody: 'Use housing prompts below or ask about rent, fees, and listings.',
+    typingHint: 'Tap a housing prompt or type your question below...',
     liveChat: 'Conversation',
     assistantName: 'AI Assistant',
     you: 'You',
@@ -251,12 +251,12 @@ export const en = {
     reportAckTitle: 'Report',
     reportAckMessage: 'Thank you. Full in-app reporting is not wired yet; contact support if you need help.',
     shareFailed: 'Could not open the share sheet.',
-    quickPromptsTitle: 'Try asking',
+    quickPromptsTitle: 'Ask about housing',
     quickPrompts: [
-      'Small habits to balance work and personal life when the week is packed.',
-      'Explain inflation in simple terms — why do everyday prices keep rising?',
-      'Brief overview of political topics that have been in the news lately.',
-      'What is the weather forecast for this weekend — umbrella or light clothes?',
+      'What is a fair monthly rent for a studio in District 7 vs Thu Duc?',
+      'Besides rent, which fees should I check on a room listing?',
+      'How can I tell if a listing price is reasonable for the neighborhood?',
+      'Which amenities matter most when renting near a university?',
     ],
   },
   settings: {

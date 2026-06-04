@@ -56,6 +56,7 @@ const parseHousingRow = (row: unknown): Housing => {
       garbage_unit: null,
       amenities: null,
       image_urls: [],
+      updated_at: null,
     };
   }
 
@@ -78,6 +79,7 @@ const parseHousingRow = (row: unknown): Housing => {
     garbage_unit: toNullableString(item.garbage_unit),
     amenities: item.amenities ?? null,
     image_urls: parseStringArray(item.image_urls),
+    updated_at: toNullableString(item.updated_at),
   };
 };
 

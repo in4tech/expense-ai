@@ -12,6 +12,7 @@ export {
   HomePopularSection,
   HomeSearchField,
   HousingListCard,
+  HousingPopularCard,
 } from "./components";
 export {
   EMPTY_HOME_HOUSING_FILTERS,

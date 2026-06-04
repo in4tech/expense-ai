@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -12,6 +12,7 @@ import {
 import { formatListingPrice } from "@/src/features/housings/house-detail/utils";
 import type { Housing } from "@/src/features/housings/types";
 import type { Dictionary } from "@/src/i18n";
+import { isHousingUpdatedToday } from "@/src/features/housings/home/utils/is-housing-updated-today";
 import { href } from "@/src/navigation/href";
 import { useAppTheme } from "@/src/theme";
 
@@ -24,6 +25,8 @@ type HousingListCardProps = {
   copy: HomeCopy;
   contactForPrice: string;
   layout?: "full" | "carousel";
+  showSaveButton?: boolean;
+  saveAccessibilityLabel?: string;
 };
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
@@ -60,9 +63,14 @@ export function HousingListCard({
   copy,
   contactForPrice,
   layout = "full",
+  showSaveButton = false,
+  saveAccessibilityLabel,
 }: HousingListCardProps) {
   const isCarousel = layout === "carousel";
   const { colors: c, isDark } = useAppTheme();
+  const [saved, setSaved] = useState(false);
+
+  const hasListedPrice = housing.price != null && housing.price > 0;
 
   const infoColors = useMemo(
     () => ({
@@ -73,8 +81,25 @@ export function HousingListCard({
     }),
     [isDark],
   );
+
+  const priceBadgeColors = useMemo(
+    () =>
+      hasListedPrice
+        ? {
+            backgroundColor: c.primary,
+            icon: "#FFFFFF",
+            text: "#FFFFFF",
+          }
+        : {
+            backgroundColor: "rgba(15, 23, 42, 0.88)",
+            icon: "#F8FAFC",
+            text: "#F8FAFC",
+          },
+    [c.primary, hasListedPrice],
+  );
+
   const coverUri = housing.image_urls[0];
-  const hasPhotos = housing.image_urls.length > 0;
+  const showNewBadge = isHousingUpdatedToday(housing.updated_at);
 
   const displayName = housing.house_name ?? copy.untitledHousing;
   const displayAddress = housing.address ?? copy.noAddress;
@@ -91,6 +116,10 @@ export function HousingListCard({
   const onViewDetails = useCallback(() => {
     router.push(href.mainHouseDetail(housing.id));
   }, [housing.id]);
+
+  const onToggleSave = useCallback(() => {
+    setSaved((value) => !value);
+  }, []);
 
   return (
     <Pressable
@@ -112,15 +141,48 @@ export function HousingListCard({
           </View>
         )}
 
-        {hasPhotos ? (
+        {showNewBadge ? (
           <View style={styles.newBadge}>
             <ThemedText style={styles.newBadgeText}>{copy.cardNewBadge}</ThemedText>
           </View>
         ) : null}
 
-        <View style={styles.priceBadge} pointerEvents="none">
-          <Ionicons name="cash-sharp" size={14} color="#F8FAFC" />
-          <ThemedText style={styles.priceBadgeText} numberOfLines={1}>
+        {showSaveButton ? (
+          <Pressable
+            onPress={onToggleSave}
+            accessibilityRole="button"
+            accessibilityLabel={saveAccessibilityLabel}
+            accessibilityState={{ selected: saved }}
+            hitSlop={8}
+            style={[
+              styles.saveButton,
+              {
+                backgroundColor: saved ? c.primary : "rgba(15, 23, 42, 0.55)",
+                borderColor: saved ? c.primary : "rgba(255, 255, 255, 0.22)",
+              },
+            ]}
+          >
+            <Ionicons
+              name={saved ? "bookmark" : "bookmark-outline"}
+              size={20}
+              color="#FFFFFF"
+            />
+          </Pressable>
+        ) : null}
+
+        <View
+          style={[
+            styles.priceBadge,
+            showSaveButton && styles.priceBadgeWithSave,
+            { backgroundColor: priceBadgeColors.backgroundColor },
+          ]}
+          pointerEvents="none"
+        >
+          <Ionicons name="cash-sharp" size={14} color={priceBadgeColors.icon} />
+          <ThemedText
+            style={[styles.priceBadgeText, { color: priceBadgeColors.text }]}
+            numberOfLines={1}
+          >
             {displayPrice}
           </ThemedText>
         </View>
@@ -205,6 +267,18 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.2,
   },
+  saveButton: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 3,
+  },
   priceBadge: {
     position: "absolute",
     top: 14,
@@ -213,15 +287,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "rgba(15, 23, 42, 0.88)",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 6,
     zIndex: 2,
   },
+  priceBadgeWithSave: {
+    right: 58,
+    maxWidth: "46%",
+  },
   priceBadgeText: {
     flexShrink: 1,
-    color: "#F8FAFC",
     fontSize: 13,
     fontWeight: "800",
     letterSpacing: -0.2,

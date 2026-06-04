@@ -195,8 +195,8 @@ export const vn = {
     subtitle:
       'Trò chuyện với trợ lý tài chính. SSE qua POST /conversations/{id}/chat-stream.',
     emptyTitle: 'Bắt đầu cuộc trò chuyện',
-    emptyBody: 'Bạn có thể dùng câu hỏi nhanh bên dưới hoặc nhập câu hỏi ở ô chat.',
-    typingHint: 'Chọn gợi ý hoặc nhập bên dưới để bắt đầu...',
+    emptyBody: 'Dùng gợi ý về thuê nhà bên dưới hoặc hỏi về giá, phí và tin đăng.',
+    typingHint: 'Chọn gợi ý thuê nhà hoặc nhập câu hỏi bên dưới...',
     liveChat: 'Cuộc trò chuyện',
     assistantName: 'AI Assistant',
     you: 'Bạn',
@@ -252,12 +252,12 @@ export const vn = {
     reportAckTitle: 'Báo cáo',
     reportAckMessage: 'Cảm ơn bạn. Báo cáo đầy đủ trong app sẽ được bổ sung sau; cần hỗ trợ hãy liên hệ bộ phận hỗ trợ.',
     shareFailed: 'Không mở được bảng chia sẻ.',
-    quickPromptsTitle: 'Gợi ý nhanh',
+    quickPromptsTitle: 'Hỏi về thuê nhà',
     quickPrompts: [
-      'Gợi ý thói quen nhỏ để cân bằng công việc và đời sống khi bận cả tuần.',
-      'Giải thích đơn giản: lạm phát là gì và vì sao giá hàng tăng?',
-      'Tóm tắt ngắn các chủ đề chính trị đang được quan tâm gần đây.',
-      'Dự báo thời tiết cuối tuần này ở TP.HCM — nên mang ô hay mặc nhẹ?',
+      'Giá thuê phòng studio ở Q.7 và Thủ Đức khoảng bao nhiêu là hợp lý?',
+      'Ngoài tiền phòng, cần xem những khoản phí nào trong tin cho thuê?',
+      'Làm sao biết giá thuê trong tin đăng có phù hợp khu vực không?',
+      'Tiện ích nào quan trọng khi thuê phòng gần trường đại học?',
     ],
   },
   settings: {

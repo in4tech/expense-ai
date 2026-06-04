@@ -16,6 +16,7 @@ export type Housing = {
   garbage_unit: string | null;
   amenities: unknown;
   image_urls: string[];
+  updated_at: string | null;
 };
 
 export type HousingListResponse = {

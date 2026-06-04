@@ -8,11 +8,12 @@ import type { ChatThemeColors } from '@/src/theme/chat-colors';
 
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
+/** One theme per housing quick prompt (order matches i18n `chat.quickPrompts`). */
 const PROMPT_THEMES: { icon: IoniconName; accent: string }[] = [
-  { icon: 'leaf-outline', accent: '#34C759' },
-  { icon: 'trending-up-outline', accent: '#FF9500' },
-  { icon: 'newspaper-outline', accent: '#5856D6' },
-  { icon: 'partly-sunny-outline', accent: '#32ADE6' },
+  { icon: 'home-outline', accent: '#34C759' },
+  { icon: 'receipt-outline', accent: '#FF9500' },
+  { icon: 'cash-outline', accent: '#5856D6' },
+  { icon: 'school-outline', accent: '#32ADE6' },
 ];
 
 export type ChatQuickPromptsProps = {
@@ -75,7 +76,7 @@ export function ChatQuickPrompts({
     <View style={styles.root}>
       <View style={styles.sectionHeader}>
         <View style={[styles.sectionIcon, { backgroundColor: isDark ? '#3A3A3C' : '#EDE6FD' }]}>
-          <Ionicons name="sparkles" size={14} color={isDark ? '#C4B5F8' : '#6B5CAE'} />
+          <Ionicons name="business-outline" size={14} color={isDark ? '#C4B5F8' : '#6B5CAE'} />
         </View>
         <Text style={[styles.sectionTitle, { color: c.textMuted }]}>{sectionTitle}</Text>
       </View>

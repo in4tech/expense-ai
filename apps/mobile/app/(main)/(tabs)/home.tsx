@@ -138,6 +138,10 @@ export default function HomeScreen() {
               copy={home}
               contactForPrice={contactForPrice}
               listKeyPrefix="recommendation"
+              titleIcon="heart"
+              titleIconColor={c.danger}
+              showSaveOnPopularCard
+              saveAccessibilityLabel={dictionary.houseDetail.favoriteListing}
             />
           ) : null}
 
@@ -151,6 +155,8 @@ export default function HomeScreen() {
               viewAllLabel={home.viewAll}
               onViewAllPress={openAllListings}
               listKeyPrefix="listing"
+              titleIcon="flame"
+              titleIconColor={c.primary}
             />
           ) : (
             <HomeListEmpty message={listingFilters.emptyMessage} />
