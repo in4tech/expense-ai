@@ -1,151 +1,120 @@
-import { useEffect, useRef } from "react";
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
-import { href } from "@/src/navigation/href";
 import { useAppTheme } from "@/src/theme";
 
 type HomeHeaderProps = {
-  title: string;
+  greeting: string;
+  userName: string;
+  avatarUri?: string | null;
   searchPlaceholder: string;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
-  searchOpen: boolean;
-  onSearchToggle: () => void;
+  onProfilePress?: () => void;
+  onPredictPress?: () => void;
   hasActiveFilters?: boolean;
   onFilterPress?: () => void;
   filterAccessibilityLabel?: string;
 };
 
 const SEARCH_ROW_HEIGHT = 44;
+const AVATAR_SIZE = 48;
+const ICON_BUTTON_SIZE = 34;
 
 export function HomeHeader({
-  title,
+  greeting,
+  userName,
+  avatarUri,
   searchPlaceholder,
   searchQuery,
   onSearchQueryChange,
-  searchOpen,
-  onSearchToggle,
+  onProfilePress,
+  onPredictPress,
   hasActiveFilters = false,
   onFilterPress,
   filterAccessibilityLabel,
 }: HomeHeaderProps) {
-  const { colors: c } = useAppTheme();
-  const searchAnim = useRef(new Animated.Value(searchOpen ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(searchAnim, {
-      toValue: searchOpen ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [searchAnim, searchOpen]);
-
-  const searchRowHeight = searchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, SEARCH_ROW_HEIGHT],
-  });
-  const searchOpacity = searchAnim.interpolate({
-    inputRange: [0, 0.35, 1],
-    outputRange: [0, 0, 1],
-  });
-  const searchTranslateY = searchAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-6, 0],
-  });
+  const { colors: c, isDark } = useAppTheme();
 
   return (
     <View style={styles.header}>
       <View style={styles.topRow}>
-        <ThemedText style={[styles.title, { color: c.title }]}>{title}</ThemedText>
-        <View style={styles.actions}>
+        <Pressable
+          onPress={onProfilePress}
+          style={styles.profileBlock}
+          disabled={!onProfilePress}
+          accessibilityRole="button"
+          accessibilityLabel={userName}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? "#3A4A5C" : "#B8D4E8" }]}>
+              <Ionicons name="person" size={26} color={isDark ? "#CBD5E1" : "#FFFFFF"} />
+            </View>
+          )}
+          <View style={styles.profileText}>
+            <ThemedText style={[styles.greeting, { color: c.hint }]}>{greeting}</ThemedText>
+            <ThemedText style={[styles.userName, { color: c.title }]} numberOfLines={1}>
+              {userName}
+            </ThemedText>
+          </View>
+        </Pressable>
+
+        {onPredictPress ? (
           <Pressable
-            onPress={onSearchToggle}
-            style={[
-              styles.iconButton,
-              {
-                borderColor: c.border,
-                backgroundColor: searchOpen ? c.chipBg : c.card,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ expanded: searchOpen }}>
-            <Ionicons
-              name={searchOpen ? "close" : "search-outline"}
-              size={18}
-              color={searchOpen ? c.primary : c.title}
-            />
-          </Pressable>
-          <Pressable
-            onPress={() => router.push(href.mainHousingPredict)}
+            onPress={onPredictPress}
             style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
-            accessibilityRole="button">
+            accessibilityRole="button"
+          >
             <Ionicons name="sparkles-outline" size={18} color={c.primary} />
           </Pressable>
-        </View>
+        ) : null}
       </View>
 
-      <Animated.View
-        style={[
-          styles.searchWrap,
-          {
-            height: searchRowHeight,
-            opacity: searchOpacity,
-            transform: [{ translateY: searchTranslateY }],
-          },
-        ]}>
-        <View style={styles.searchRow}>
-          <View
-            style={[
-              styles.searchField,
-              { borderColor: c.border, backgroundColor: c.card },
-            ]}>
-            <Ionicons name="search" size={16} color={c.hint} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={onSearchQueryChange}
-              placeholder={searchPlaceholder}
-              placeholderTextColor={c.hint}
-              style={[styles.searchInput, { color: c.title }]}
-              returnKeyType="search"
-              autoCorrect={false}
-              autoCapitalize="none"
-              clearButtonMode="while-editing"
-            />
-          </View>
-          {onFilterPress ? (
-            <Pressable
-              onPress={onFilterPress}
-              accessibilityRole="button"
-              accessibilityLabel={filterAccessibilityLabel}
-              style={[
-                styles.iconButton,
-                styles.filterButtonOuter,
-                {
-                  borderColor: c.border,
-                  backgroundColor: hasActiveFilters ? c.chipBg : c.card,
-                },
-              ]}
-            >
-              <Ionicons
-                name="options-outline"
-                size={18}
-                color={hasActiveFilters ? c.primary : c.title}
-              />
-            </Pressable>
-          ) : null}
+      <View style={styles.searchRow}>
+        <View
+          style={[
+            styles.searchField,
+            { borderColor: c.border, backgroundColor: isDark ? c.card : "#FFFFFF" },
+          ]}
+        >
+          <Ionicons name="search" size={16} color={c.hint} />
+          <TextInput
+            value={searchQuery}
+            onChangeText={onSearchQueryChange}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={c.hint}
+            style={[styles.searchInput, { color: c.title }]}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+            clearButtonMode="while-editing"
+          />
         </View>
-      </Animated.View>
+        {onFilterPress ? (
+          <Pressable
+            onPress={onFilterPress}
+            accessibilityRole="button"
+            accessibilityLabel={filterAccessibilityLabel}
+            style={[
+              styles.iconButton,
+              styles.filterButtonOuter,
+              {
+                borderColor: c.border,
+                backgroundColor: hasActiveFilters ? c.chipBg : c.card,
+              },
+            ]}
+          >
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={hasActiveFilters ? c.primary : c.title}
+            />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -153,42 +122,68 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
-    paddingTop: 6,
+    paddingBottom: 4,
+    paddingTop: 8,
   },
   topRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 12,
   },
-  title: { fontSize: 26, fontWeight: "700", flex: 1 },
-  actions: {
+  profileBlock: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
+    minWidth: 0,
   },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
+  avatarImage: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
+  },
+  avatarPlaceholder: {
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
-  searchWrap: {
-    overflow: "hidden",
-    marginTop: 10,
+  profileText: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  greeting: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  iconButton: {
+    width: ICON_BUTTON_SIZE,
+    height: ICON_BUTTON_SIZE,
+    borderRadius: ICON_BUTTON_SIZE / 2,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    marginTop: 4,
   },
   searchField: {
     flex: 1,
     height: SEARCH_ROW_HEIGHT,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,

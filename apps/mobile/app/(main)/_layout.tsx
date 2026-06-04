@@ -27,6 +27,7 @@ export default function MainStackLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="dev-settings" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="home-listings" />
       <Stack.Screen name="housing-predict" />
       <Stack.Screen name="housing-predict-result" />
       <Stack.Screen name="map-pick-location" />

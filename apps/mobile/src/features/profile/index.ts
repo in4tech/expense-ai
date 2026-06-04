@@ -5,5 +5,6 @@ export {
 } from '@/src/features/profile/country-codes';
 export { CountryCodePicker } from '@/src/features/profile/components/country-code-picker';
 export { ProfileDropdown } from '@/src/features/profile/components/profile-dropdown';
+export { getDefaultAvatarUri } from '@/src/features/profile/default-avatar';
 export { loadProfile, saveProfile } from '@/src/features/profile/storage';
 export { emptyProfile, type UserProfile } from '@/src/features/profile/types';

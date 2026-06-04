@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
+import { StackIconButton } from "@/src/components/stack-icon-button";
 import {
   predictHousingPrice,
   type HousingPredictInput,
@@ -210,12 +211,9 @@ export default function HousingPredictScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={["top", "bottom"]}>
       <PredictLoadingOverlay visible={isPredicting} message={hp.predicting} />
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}
-        >
+        <StackIconButton onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={18} color={c.title} />
-        </Pressable>
+        </StackIconButton>
         <ThemedText style={[styles.headerTitle, { color: c.title }]}>{hp.title}</ThemedText>
       </View>
 
@@ -417,14 +415,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   headerTitle: { fontSize: 22, fontWeight: "700" },
   content: { paddingHorizontal: 16, paddingVertical: 16, gap: 12 },

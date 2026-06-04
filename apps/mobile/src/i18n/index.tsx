@@ -13,6 +13,12 @@ export type Dictionary = {
   };
   home: {
     title: string;
+    greetingMorning: string;
+    greetingAfternoon: string;
+    greetingEvening: string;
+    greetingNight: string;
+    guestName: string;
+    notificationsA11y: string;
     loading: string;
     loadFailed: string;
     retry: string;
@@ -27,6 +33,13 @@ export type Dictionary = {
     wifiAvailable: string;
     wifiUnknown: string;
     viewDetails: string;
+    cardNewBadge: string;
+    listingsTabAll: string;
+    popularTitle: string;
+    recommendationTitle: string;
+    allListingsTitle: string;
+    viewAll: string;
+    viewAllBackA11y: string;
     searchPlaceholder: string;
     searchNoResults: string;
     filterTitle: string;

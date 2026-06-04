@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
+import { StackIconButton } from "@/src/components/stack-icon-button";
 import { useLanguage } from "@/src/i18n";
 import { emitLocationPick } from "@/src/navigation/location-pick-bridge";
 import { useAppTheme } from "@/src/theme";
@@ -142,12 +143,9 @@ export default function MapPickLocationScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={["top", "bottom"]}>
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}
-        >
+        <StackIconButton onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={18} color={c.title} />
-        </Pressable>
+        </StackIconButton>
         <ThemedText style={[styles.headerTitle, { color: c.title }]}>{d.title}</ThemedText>
       </View>
 
@@ -270,14 +268,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
-  },
-  iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   headerTitle: { fontSize: 20, fontWeight: "700", flex: 1 },
   searchRow: {

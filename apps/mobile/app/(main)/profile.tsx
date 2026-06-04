@@ -23,6 +23,7 @@ import { useAuth } from '@/src/features/auth';
 import {
   CountryCodePicker,
   emptyProfile,
+  getDefaultAvatarUri,
   loadProfile,
   ProfileDropdown,
   saveProfile,
@@ -60,6 +61,16 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile>(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  const displayAvatarUri = useMemo(() => {
+    if (profile.avatarUri) {
+      return profile.avatarUri;
+    }
+    if (!user?.id) {
+      return null;
+    }
+    return getDefaultAvatarUri(user.id, 216);
+  }, [profile.avatarUri, user?.id]);
 
   const c = useMemo(
     () => ({
@@ -179,8 +190,8 @@ export default function ProfileScreen() {
                 accessibilityLabel={p.changeAvatar}
                 onPress={onPickAvatar}
                 style={styles.avatarPressable}>
-                {profile.avatarUri ? (
-                  <Image source={{ uri: profile.avatarUri }} style={styles.avatarImage} />
+                {displayAvatarUri ? (
+                  <Image source={{ uri: displayAvatarUri }} style={styles.avatarImage} />
                 ) : (
                   <View style={[styles.avatarPlaceholder, { backgroundColor: c.avatarBg }]}>
                     <Ionicons name="person" size={48} color={c.muted} />
