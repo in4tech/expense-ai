@@ -35,5 +35,7 @@ export const apiPaths = {
     root: housingsRoot,
     byId: (housingId: string) => `${housingsRoot}/${encodeURIComponent(housingId)}`,
     predict: `${housingsRoot}/predict`,
+    uploadImages: (housingId: string) =>
+      `${housingsRoot}/${encodeURIComponent(housingId)}/upload-multiple`,
   },
 } as const;

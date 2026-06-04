@@ -12,6 +12,7 @@ export {
   HouseDetailCenterState,
   HouseDetailHeader,
   HouseDetailHero,
+  HouseDetailImagesSection,
   HouseDetailLocationMap,
   HouseDetailOverviewSection,
   HouseDetailPropertySection,

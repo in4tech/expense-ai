@@ -1,6 +1,8 @@
+from typing import List
 from uuid import UUID
+import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
@@ -9,6 +11,9 @@ from app.services.predict_service import predict_price
 from app.db.models.housing import Housing
 from app.db.models.room import Room
 from app.db.session import DbSession
+from app.core.supabase import supabase, BUCKET_NAME
+from app.db.models.housing_images import HousingImages
+from app.api.housings.image_urls import normalize_image_urls, sync_housing_image_urls
 
 router = APIRouter()
 
@@ -37,6 +42,7 @@ def _housing_row(housing: Housing) -> dict:
         "latitude": housing.latitude,
         "longitude": housing.longitude,
         "amenities": housing.amenities,
+        "image_urls": normalize_image_urls(housing.image_urls),
         "last_update": housing.last_update.isoformat() if housing.last_update else None,
         "created_at": housing.created_at.isoformat() if housing.created_at else None,
         "updated_at": housing.updated_at.isoformat() if housing.updated_at else None,
@@ -86,8 +92,16 @@ async def get_housing_detail(housing_id: UUID, db: DbSession):
     housing = result.scalar_one_or_none()
     if housing is None:
         raise HTTPException(status_code=404, detail="Housing not found")
+
+    image_urls = await sync_housing_image_urls(db, housing_id, housing)
+    if not image_urls:
+        image_urls = normalize_image_urls(housing.image_urls)
+
+    housing_row = _housing_row(housing)
+    housing_row["image_urls"] = image_urls
+
     return {
-        "housing": _housing_row(housing),
+        "housing": housing_row,
         "room": _room_row(housing.room) if housing.room else None,
     }
 
@@ -122,3 +136,61 @@ async def housing_prediction(body: HousingPredictRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     return HousingPredictResponse(price=price)
+
+
+@router.post("/{housing_id}/upload-multiple")
+async def upload_multiple(
+    housing_id: UUID,
+    db: DbSession,
+    files: List[UploadFile] = File(...),
+):
+    if not files:
+        raise HTTPException(status_code=422, detail="At least one file is required")
+
+    result = await db.execute(select(Housing).where(Housing.id == housing_id))
+    housing = result.scalar_one_or_none()
+    if housing is None:
+        raise HTTPException(status_code=404, detail="Housing not found")
+
+    existing_images = await db.execute(
+        select(HousingImages).where(HousingImages.housing_id == housing_id)
+    )
+    has_thumbnail = any(
+        row.is_thumbnail for row in existing_images.scalars().all()
+    )
+
+    image_urls: list[str] = []
+    for file in files:
+        filename = file.filename or "image"
+        extension = filename.rsplit(".", 1)[-1] if "." in filename else "jpg"
+
+        file_name = f"{uuid.uuid4()}.{extension}"
+        content = await file.read()
+
+        supabase.storage.from_(BUCKET_NAME).upload(
+            path=file_name,
+            file=content,
+            file_options={"content-type": file.content_type or "image/jpeg"},
+        )
+
+        public_url = supabase.storage.from_(BUCKET_NAME).get_public_url(file_name)
+        image_urls.append(public_url)
+
+        db.add(
+            HousingImages(
+                housing_id=housing_id,
+                image_url=public_url,
+                is_thumbnail=not has_thumbnail,
+            )
+        )
+        if not has_thumbnail:
+            has_thumbnail = True
+
+    await db.flush()
+    all_urls = await sync_housing_image_urls(db, housing_id, housing)
+    await db.commit()
+
+    return {
+        "total": len(image_urls),
+        "images": all_urls,
+    }

@@ -7,23 +7,66 @@ import { useAppTheme } from "@/src/theme";
 
 type Props = {
   title: string;
+  onUploadPress?: () => void;
+  uploadDisabled?: boolean;
+  uploadAccessibilityLabel?: string;
+  onFavoritePress?: () => void;
+  favoriteAccessibilityLabel?: string;
 };
 
-export function HouseDetailHeader({ title }: Props) {
+export function HouseDetailHeader({
+  title,
+  onUploadPress,
+  uploadDisabled = false,
+  uploadAccessibilityLabel,
+  onFavoritePress,
+  favoriteAccessibilityLabel,
+}: Props) {
   const { colors: c } = useAppTheme();
+  const actionCount = (onFavoritePress ? 1 : 0) + (onUploadPress ? 1 : 0);
+  const sideWidth = actionCount === 2 ? 88 : 40;
 
   return (
     <View style={styles.header}>
-      <Pressable
-        onPress={() => router.back()}
-        style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}
-      >
-        <Ionicons name="chevron-back" size={20} color={c.title} />
-      </Pressable>
+      <View style={[styles.sideSlot, { width: sideWidth }]}>
+        <Pressable
+          onPress={() => router.back()}
+          style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}
+        >
+          <Ionicons name="chevron-back" size={20} color={c.title} />
+        </Pressable>
+      </View>
       <ThemedText style={[styles.headerTitle, { color: c.title }]} numberOfLines={1}>
         {title}
       </ThemedText>
-      <View style={styles.spacer} />
+      <View style={[styles.sideSlot, styles.rightSlot, { width: sideWidth }]}>
+        {onFavoritePress ? (
+          <Pressable
+            onPress={onFavoritePress}
+            accessibilityRole="button"
+            accessibilityLabel={favoriteAccessibilityLabel}
+            style={[styles.iconBtn, { borderColor: c.border, backgroundColor: c.card }]}
+          >
+            <Ionicons name="heart-outline" size={20} color={c.danger} />
+          </Pressable>
+        ) : null}
+        {onUploadPress ? (
+          <Pressable
+            onPress={onUploadPress}
+            disabled={uploadDisabled}
+            accessibilityLabel={uploadAccessibilityLabel}
+            accessibilityRole="button"
+            style={[
+              styles.iconBtn,
+              { borderColor: c.border, backgroundColor: c.card },
+              onFavoritePress ? styles.iconBtnSpaced : null,
+              uploadDisabled && styles.iconBtnDisabled,
+            ]}
+          >
+            <Ionicons name="images-outline" size={20} color={c.title} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -46,10 +89,22 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
+    flexShrink: 1,
     textAlign: "center",
     fontSize: 18,
     fontWeight: "700",
     marginHorizontal: 8,
   },
-  spacer: { width: 40 },
+  sideSlot: {
+    flexShrink: 0,
+  },
+  rightSlot: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  iconBtnSpaced: {
+    marginLeft: 8,
+  },
+  iconBtnDisabled: { opacity: 0.45 },
 });

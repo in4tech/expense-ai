@@ -15,6 +15,7 @@ export type Housing = {
   parking_unit: string | null;
   garbage_unit: string | null;
   amenities: unknown;
+  image_urls: string[];
 };
 
 export type HousingListResponse = {
@@ -48,6 +49,7 @@ export type HousingDetail = {
   latitude: number | null;
   longitude: number | null;
   amenities: unknown;
+  image_urls: string[];
   last_update: string | null;
   created_at: string | null;
   updated_at: string | null;

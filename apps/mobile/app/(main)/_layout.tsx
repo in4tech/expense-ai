@@ -31,6 +31,7 @@ export default function MainStackLayout() {
       <Stack.Screen name="housing-predict-result" />
       <Stack.Screen name="map-pick-location" />
       <Stack.Screen name="house-detail/[id]" />
+      <Stack.Screen name="house-detail/upload-images/[id]" />
     </Stack>
   );
 }

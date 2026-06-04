@@ -1,5 +1,7 @@
 export type { Housing, HousingDetail, HousingDetailResponse, HousingListResponse, RoomDetail } from "@/src/features/housings/types";
 export { listHousings, getHousingById } from "@/src/features/housings/api/services";
+export { uploadHousingImages } from "@/src/features/housings/api/housing-images-upload";
+export type { HousingImageFile, UploadHousingImagesResponse } from "@/src/features/housings/api/housing-images-upload";
 export { predictHousingPrice } from "@/src/features/housings/api/predict";
 export type { HousingPredictInput, HousingPredictResponse } from "@/src/features/housings/api/predict";
 export { housingsListQueryOptions, housingDetailQueryOptions } from "@/src/features/housings/api/queries";
@@ -15,6 +17,7 @@ export {
   HouseDetailCenterState,
   HouseDetailHeader,
   HouseDetailHero,
+  HouseDetailImagesSection,
   HouseDetailLocationMap,
   HouseDetailOverviewSection,
   HouseDetailPropertySection,

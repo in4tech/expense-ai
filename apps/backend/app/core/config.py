@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     COHERE_API_KEY: str | None = None
     REDIS_URL: str
     SECRET_KEY: str
+    SUPABASE_URL: str
+    SUPABASE_KEY: str
 
 
 @lru_cache(maxsize=1)

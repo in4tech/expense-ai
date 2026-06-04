@@ -10,12 +10,14 @@ type Props = {
   title: string;
   children: ReactNode;
   defaultExpanded?: boolean;
+  count?: number;
 };
 
 export function HouseDetailSection({
   title,
   children,
   defaultExpanded = false,
+  count,
 }: Props) {
   const { colors: c } = useAppTheme();
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -59,7 +61,12 @@ export function HouseDetailSection({
         accessibilityState={{ expanded }}
       >
         <ThemedText style={[styles.title, { color: c.title }]}>{title}</ThemedText>
-        <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color={c.hint} />
+        <View style={styles.headerRight}>
+          {count != null ? (
+            <ThemedText style={[styles.count, { color: c.hint }]}>({count})</ThemedText>
+          ) : null}
+          <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={20} color={c.hint} />
+        </View>
       </Pressable>
       {expanded ? (
         <View style={styles.body} onLayout={handleBodyLayout}>
@@ -86,5 +93,16 @@ const styles = StyleSheet.create({
   },
   headerPressed: { opacity: 0.85 },
   title: { flex: 1, fontSize: 16, fontWeight: "800" },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  count: {
+    fontSize: 14,
+    fontWeight: "600",
+    minWidth: 16,
+    textAlign: "right",
+  },
   body: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
 });

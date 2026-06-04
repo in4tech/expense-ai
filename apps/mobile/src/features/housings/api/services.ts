@@ -17,6 +17,15 @@ const toNullableString = (value: unknown): string | null => {
   return trimmed.length > 0 ? trimmed : null;
 };
 
+const parseStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+};
+
 const toNullableBoolean = (value: unknown): boolean | null => {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
@@ -46,6 +55,7 @@ const parseHousingRow = (row: unknown): Housing => {
       parking_unit: null,
       garbage_unit: null,
       amenities: null,
+      image_urls: [],
     };
   }
 
@@ -67,6 +77,7 @@ const parseHousingRow = (row: unknown): Housing => {
     parking_unit: toNullableString(item.parking_unit),
     garbage_unit: toNullableString(item.garbage_unit),
     amenities: item.amenities ?? null,
+    image_urls: parseStringArray(item.image_urls),
   };
 };
 
@@ -96,6 +107,7 @@ const parseHousingDetail = (row: unknown): HousingDetail => {
       latitude: null,
       longitude: null,
       amenities: null,
+      image_urls: [],
       last_update: null,
       created_at: null,
       updated_at: null,
@@ -126,6 +138,7 @@ const parseHousingDetail = (row: unknown): HousingDetail => {
     latitude: toNullableNumber(item.latitude),
     longitude: toNullableNumber(item.longitude),
     amenities: item.amenities ?? null,
+    image_urls: parseStringArray(item.image_urls),
     last_update: toNullableString(item.last_update),
     created_at: toNullableString(item.created_at),
     updated_at: toNullableString(item.updated_at),

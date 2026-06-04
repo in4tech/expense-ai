@@ -13,4 +13,6 @@ export const href = {
   mainHousingPredictResult: "/(main)/housing-predict-result" as Href,
   mainMapPickLocation: "/(main)/map-pick-location" as Href,
   mainHouseDetail: (housingId: string) => `/(main)/house-detail/${housingId}` as Href,
+  mainHouseUploadImages: (housingId: string) =>
+    `/(main)/house-detail/upload-images/${housingId}` as Href,
 };

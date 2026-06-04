@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, Integer, String, ARRAY, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -37,6 +37,8 @@ class Housing(Base):
     longitude = Column(Float, nullable=True)
     amenities = Column(JSONB, nullable=True)
     last_update = Column(DateTime(timezone=True), nullable=True)
+
+    image_urls = Column(ARRAY(Text), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

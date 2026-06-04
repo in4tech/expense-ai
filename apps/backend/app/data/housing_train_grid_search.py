@@ -1,5 +1,7 @@
-import joblib
+import shap
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from pathlib import Path
 from math import atan2, cos, radians, sin, sqrt
@@ -14,7 +16,7 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import RandomizedSearchCV, cross_val_score, train_test_split
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 DATA_DIR = Path(__file__).resolve().parent
@@ -121,81 +123,128 @@ housing["price_per_m2"] = (housing["price"] // rooms["room_area"])
 # Convert Type
 rooms[ROOM_FEATURE_NUMBERIC_COLUMNS] = rooms[ROOM_FEATURE_NUMBERIC_COLUMNS].fillna(0).astype(int)
 
-X = pd.concat([housing[HOUSING_FEATURE_NUMBERIC_COLUMNS], rooms], axis=1)
-y = housing[TARGET_COLUMN]
+
+def _coerce_bool_column(series: pd.Series) -> pd.Series:
+    def to_int(value) -> int:
+        if pd.isna(value):
+            return 0
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (int, float)):
+            return 1 if value else 0
+        normalized = str(value).strip().lower()
+        if normalized in {"true", "1", "yes", "miễn phí", "mien phi"}:
+            return 1
+        return 0
+
+    return series.map(to_int)
 
 
-numberic_transformer = Pipeline([
-    (
-        "imputer",
-        SimpleImputer(strategy="median")
-    )
-])
+housing["has_wifi"] = _coerce_bool_column(housing["has_wifi"])
 
-preprocessor = ColumnTransformer(
-    transformers=[
-        (
-            "num",
-            numberic_transformer,
-            HOUSING_FEATURE_NUMBERIC_COLUMNS + ROOM_FEATURE_NUMBERIC_COLUMNS
-        ),
-        (
-            "txt",
-            TfidfVectorizer(max_features=500),
-            ROOM_FEATURE_TEXT_COLUMNS
-        )
-    ]
+# XGBoost only accepts numeric dtypes — exclude string ROOM_OTHER columns and combined_text.
+X = pd.concat(
+    [
+        housing[HOUSING_FEATURE_NUMBERIC_COLUMNS],
+        rooms[ROOM_FEATURE_NUMBERIC_COLUMNS + ["room_area"]],
+    ],
+    axis=1,
 )
-
-newModel = Pipeline([
-    (
-        "preprocessor",
-        preprocessor
-    ),
-    (
-        "xgregressor",
-        XGBRegressor(
-            n_estimators=500, # Số lượng decision tree
-            max_depth=4, # Độ sâu của mỗi decision tree
-            learning_rate=0.03, # Tốc độ học
-            subsample=1.0, # Tỷ lệ mẫu được sử dụng để huấn luyện mỗi decision tree
-            colsample_bytree=1.0, # Tỷ lệ cột được sử dụng để huấn luyện mỗi decision tree
-            min_child_weight=1,
-            random_state=42,
-        )
-    )
-])
+y = housing[TARGET_COLUMN]
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-newModel.fit(X_train, y_train)
+param_grid = {
+    "n_estimators": [200, 500, 800],
+    "max_depth": [4, 6, 8, 10],
+    "learning_rate": [0.01, 0.03, 0.05, 0.1],
+    "subsample": [0.7, 0.8, 1.0],
+    "colsample_bytree": [0.7, 0.8, 1.0],
+    "min_child_weight": [1, 3, 5]
+}
 
-predictions = newModel.predict(X_test)
-
-result=list(map(lambda x: round(x), predictions))
-# print(f"predictions: {result}")
-
-# Mean Absolute Error -> Sai số tuyệt đối trung bình 
-mae = mean_absolute_error(y_test, predictions)
-
-# Root Mean Squared Error -> Sai số bình phương trung bình căn bậc 2
-# RMSE ≈ MAE → lỗi phân bố khá đều
-# RMSE >> MAE → có nhiều outlier hoặc dự đoán rất tệ ở một số điểm
-mse = mean_squared_error(y_test, predictions)
-rmse = mse ** 0.5
-
-# Model giải thích được bao nhiêu phần biến động của biến mục tiêu (target).
-r2 = r2_score(y_test, predictions)
-
-print(f"mae {mae:.4f} : rmse {rmse:.4f} : r2 {r2:.4f}")
-
-joblib.dump(newModel, DATA_DIR / "housing_model.pkl")
-joblib.dump(
-    {
-        "kmeans": kmeans,
-        "median_price_per_m2": int(housing["price_per_m2"].median()),
-    },
-    DATA_DIR / "location_artifacts.pkl",
+xgb = XGBRegressor(
+    objective="reg:squarederror",
+    random_state=42
 )
 
-print("Model saved")
+search = RandomizedSearchCV(
+    estimator=xgb,
+    param_distributions=param_grid,
+    n_iter=30,
+    scoring="neg_mean_absolute_error",
+    cv=5,
+    verbose=2,
+    random_state=42,
+    n_jobs=1
+)
+search.fit(X_train, y_train)
+
+best_model = search.best_estimator_
+
+predictions = best_model.predict(X_test)
+mae = mean_absolute_error(y_test, predictions)
+r2 = r2_score(y_test, predictions)
+
+print("MAE:", mae)
+print("R2 :", r2)
+
+# importance = pd.DataFrame({
+#     "feature": X.columns,
+#     "importance": best_model.feature_importances_,
+# })
+
+# print(
+#     importance.sort_values(
+#         by="importance",
+#         ascending=False
+#     )
+# )
+
+# scores = cross_val_score(
+#     best_model,
+#     X,
+#     y,
+#     cv=5,
+#     scoring="r2"
+# )
+
+# print(scores)
+# print("r2:", scores.mean())
+# print("Mean:", np.mean(scores))
+# print("Std:", np.std(scores))
+
+explainer = shap.TreeExplainer(best_model)
+
+shap_values = explainer.shap_values(X)
+shap.summary_plot(shap_values, X)
+
+# results = X_test.copy()
+# results["actual"] = y_test.values
+# results["predicted"] = predictions
+
+# results["error"] = abs(
+#     results["actual"] -
+#     results["predicted"]
+# )
+
+# worst_cases = results.sort_values(
+#     "error",
+#     ascending=False
+# )
+
+# print(worst_cases.head(20))
+
+# residuals = y_test - predictions
+
+# plt.scatter(
+#     predictions,
+#     residuals
+# )
+
+# plt.axhline(0)
+
+# plt.xlabel("Predicted")
+# plt.ylabel("Residual")
+
+# plt.show()

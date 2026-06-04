@@ -27,6 +27,21 @@ export type Dictionary = {
     wifiAvailable: string;
     wifiUnknown: string;
     viewDetails: string;
+    searchPlaceholder: string;
+    searchNoResults: string;
+    filterTitle: string;
+    filterHint: string;
+    filterActive: string;
+    filterClearAll: string;
+    filterDone: string;
+    filterNoResults: string;
+    filterOptions: {
+      hasPhotos: string;
+      hasWifi: string;
+      hasPrice: string;
+      hasAddress: string;
+      hasParking: string;
+    };
   };
   housingPredict: {
     title: string;
@@ -87,7 +102,9 @@ export type Dictionary = {
     loadFailed: string;
     retry: string;
     sectionOverview: string;
+    sectionImages: string;
     sectionLocation: string;
+    noImages: string;
     sectionProperty: string;
     sectionRoom: string;
     descriptionLabel: string;
@@ -99,6 +116,21 @@ export type Dictionary = {
     yes: string;
     no: string;
     unknown: string;
+    uploadImages: string;
+    favoriteListing: string;
+    uploadScreenTitle: string;
+    uploadEmptyHint: string;
+    uploadReviewHint: string;
+    uploadAddPhotos: string;
+    uploadSubmit: string;
+    uploadSubmitting: string;
+    uploadRemoveImage: string;
+    uploadViewImage: string;
+    uploadClosePreview: string;
+    uploadNoImages: string;
+    uploadPermissionDenied: string;
+    uploadSuccess: string;
+    uploadFailed: string;
     meta: {
       otherFee: string;
       cardFee: string;

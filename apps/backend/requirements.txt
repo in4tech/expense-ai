@@ -36,4 +36,5 @@ numpy
 scikit-learn
 joblib
 geopy
+supabase
 xgboost

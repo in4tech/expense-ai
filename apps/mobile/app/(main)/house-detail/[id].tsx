@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import { ThemedText } from "@/components/themed-text";
 import { housingDetailQueryOptions, type HousingDetail, type RoomDetail } from "@/src/features/housings";
@@ -12,6 +12,7 @@ import {
   HouseDetailCenterState,
   HouseDetailHeader,
   HouseDetailHero,
+  HouseDetailImagesSection,
   HouseDetailLocationMap,
   HouseDetailOverviewSection,
   HouseDetailPropertySection,
@@ -20,6 +21,8 @@ import {
   HouseDetailSection,
 } from "@/src/features/housings/house-detail";
 import { useHouseDetailScroll } from "@/src/features/housings/house-detail/house-detail-scroll-context";
+import { isDevMode } from "@/src/config/dev-mode";
+import { href } from "@/src/navigation/href";
 import { useAuth } from "@/src/providers/auth-context";
 import { useLanguage, type Dictionary } from "@/src/i18n";
 import { useAppTheme } from "@/src/theme";
@@ -48,6 +51,10 @@ function HouseDetailScrollBody({
   return (
     <View ref={contentRef} collapsable={false} style={styles.scrollContent}>
       <HouseDetailHero housing={housing} labels={d} homeLabels={homeLabels} />
+
+      <HouseDetailSection title={d.sectionImages} count={housing.image_urls.length}>
+        <HouseDetailImagesSection imageUrls={housing.image_urls} labels={d} />
+      </HouseDetailSection>
 
       {housingCoords ? (
         <HouseDetailSection title={d.sectionLocation}>
@@ -97,6 +104,13 @@ export default function HouseDetailScreen() {
     ...housingDetailQueryOptions(client, id),
   });
 
+  const onOpenUploadImages = () => {
+    if (!id) {
+      return;
+    }
+    router.push(href.mainHouseUploadImages(id));
+  };
+
   const housing = data?.housing;
   const room = data?.room ?? null;
 
@@ -117,9 +131,19 @@ export default function HouseDetailScreen() {
     );
   }
 
+  const showUpload =
+    isDevMode && Boolean(id) && !isLoading && !isError && Boolean(housing);
+  const showFavorite = Boolean(housing) && !isLoading && !isError;
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.screen }]} edges={["top"]}>
-      <HouseDetailHeader title={d.title} />
+      <HouseDetailHeader
+        title={d.title}
+        onUploadPress={showUpload ? onOpenUploadImages : undefined}
+        uploadAccessibilityLabel={d.uploadImages}
+        onFavoritePress={showFavorite ? () => {} : undefined}
+        favoriteAccessibilityLabel={d.favoriteListing}
+      />
 
       {isLoading ? (
         <HouseDetailCenterState variant="loading" message={d.loading} />
