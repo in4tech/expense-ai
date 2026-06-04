@@ -1,8 +1,9 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Appearance,
+  Image,
   Pressable,
   PressableStateCallbackType,
   ScrollView,
@@ -14,24 +15,30 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { BottomSheet } from '@/components/bottom-sheet';
 import { useToast } from '@/components/toast';
+import { isDevMode } from '@/src/config/dev-mode';
 import { useAuth } from '@/src/features/auth';
+import { getDefaultAvatarUri, loadProfile } from '@/src/features/profile';
 import { href } from '@/src/navigation/href';
 import { useLanguage } from '@/src/i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const PROFILE_AVATAR_SIZE = 52;
+
 export default function SettingsScreen() {
   const router = useRouter();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
   const { language, dictionary, toggleLanguage } = useLanguage();
   const { showToast } = useToast();
   const [darkMode, setDarkMode] = useState(isDark);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState('');
 
   useEffect(() => {
     setDarkMode(isDark);
@@ -79,14 +86,68 @@ export default function SettingsScreen() {
     toggleLanguage();
   }, [toggleLanguage]);
 
-  const onOpenDevSettings = useCallback(() => {
-    void Haptics.selectionAsync();
-    router.push(href.mainDevSettings);
-  }, [router]);
+  const displayName = useMemo(() => {
+    const trimmed = profileName.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+    const emailPrefix = user?.email?.split('@')[0]?.trim();
+    if (emailPrefix) {
+      return emailPrefix;
+    }
+    return dictionary.settings.profileName;
+  }, [dictionary.settings.profileName, profileName, user?.email]);
+
+  const profileHandle = useMemo(() => {
+    const trimmed = profileName.trim();
+    if (trimmed) {
+      const handle = trimmed.replace(/\s+/g, '').toLowerCase();
+      return `@${handle}`;
+    }
+    const emailPrefix = user?.email?.split('@')[0]?.trim();
+    if (emailPrefix) {
+      return `@${emailPrefix}`;
+    }
+    return dictionary.settings.profileRole;
+  }, [dictionary.settings.profileRole, profileName, user?.email]);
+
+  const displayAvatarUri = useMemo(() => {
+    if (avatarUri) {
+      return avatarUri;
+    }
+    const seed = user?.id ?? user?.email ?? displayName;
+    return getDefaultAvatarUri(seed, PROFILE_AVATAR_SIZE * 2);
+  }, [avatarUri, displayName, user?.email, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user?.id) {
+        setAvatarUri(null);
+        setProfileName('');
+        return;
+      }
+      let cancelled = false;
+      void loadProfile(user.id).then((profile) => {
+        if (cancelled) {
+          return;
+        }
+        setAvatarUri(profile.avatarUri);
+        setProfileName(profile.username);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [user?.id]),
+  );
 
   const onOpenProfile = useCallback(() => {
     void Haptics.selectionAsync();
     router.push(href.mainProfile);
+  }, [router]);
+
+  const onOpenDevSettings = useCallback(() => {
+    void Haptics.selectionAsync();
+    router.push(href.mainDevSettings);
   }, [router]);
 
   const onLogout = useCallback(() => {
@@ -122,18 +183,33 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
-        <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
-          {dictionary.settings.settingsPrivacySection}
-        </Text>
+        <Pressable
+          onPress={onOpenProfile}
+          style={({ pressed }) => [
+            styles.profileCard,
+            { backgroundColor: c.card, opacity: pressed ? 0.92 : 1 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={dictionary.settings.profileDetails}>
+          {displayAvatarUri ? (
+            <Image source={{ uri: displayAvatarUri }} style={styles.profileAvatar} />
+          ) : (
+            <View style={[styles.profileAvatar, styles.profileAvatarPlaceholder, { backgroundColor: c.backBg }]}>
+              <Ionicons name="person" size={28} color={c.textSecondary} />
+            </View>
+          )}
+          <View style={styles.profileText}>
+            <Text style={[styles.profileName, { color: c.text }]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            <Text style={[styles.profileHandle, { color: c.textSecondary }]} numberOfLines={1}>
+              {profileHandle}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={c.chevron} />
+        </Pressable>
+
         <View style={[styles.card, { backgroundColor: c.card }]}>
-          <SettingsRow
-            icon="person-outline"
-            label={dictionary.settings.profileDetails}
-            onPress={onOpenProfile}
-            dividerColor={c.divider}
-            textColor={c.text}
-            chevronColor={c.chevron}
-          />
           <SettingsRow
             icon="notifications-outline"
             label={dictionary.settings.notifications}
@@ -175,9 +251,6 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
-            {dictionary.settings.helpSupportSection}
-          </Text>
           <View style={[styles.card, { backgroundColor: c.card }]}>
             <SettingsRow
               icon="information-circle-outline"
@@ -205,11 +278,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <View style={styles.sectionBlock}>
-          <Text style={[styles.sectionLabel, { color: c.textSecondary }]}>
-            {dictionary.settings.developerSection}
-          </Text>
-          <View style={[styles.card, { backgroundColor: c.card }]}>
+        <View style={[styles.card, styles.logoutCard, { backgroundColor: c.card }]}>
+          {isDevMode ? (
             <SettingsRow
               icon="code-slash-outline"
               label={dictionary.settings.devSettings}
@@ -218,14 +288,14 @@ export default function SettingsScreen() {
               textColor={c.text}
               chevronColor={c.chevron}
             />
-            <Pressable onPress={onLogout} android_ripple={{ color: '#ff000022' }}>
-              <View style={styles.rowInner}>
-                <Ionicons name="log-out-outline" size={22} color={c.danger} />
-                <Text style={[styles.rowLabel, { color: c.danger }]}>{dictionary.settings.logout}</Text>
-                <Ionicons name="chevron-forward" size={20} color={c.chevron} style={styles.rowChevron} />
-              </View>
-            </Pressable>
-          </View>
+          ) : null}
+          <Pressable onPress={onLogout} android_ripple={{ color: '#ff000022' }}>
+            <View style={styles.rowInner}>
+              <Ionicons name="log-out-outline" size={22} color={c.danger} />
+              <Text style={[styles.rowLabel, { color: c.danger }]}>{dictionary.settings.logout}</Text>
+              <Ionicons name="chevron-forward" size={20} color={c.chevron} style={styles.rowChevron} />
+            </View>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -330,7 +400,7 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionBlock: {
-    marginTop: 22,
+    marginTop: 12,
   },
   card: {
     borderRadius: 15,
@@ -341,10 +411,55 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  profileAvatar: {
+    width: PROFILE_AVATAR_SIZE,
+    height: PROFILE_AVATAR_SIZE,
+    borderRadius: PROFILE_AVATAR_SIZE / 2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  profileAvatarPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileText: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  profileName: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  profileHandle: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   sectionLabel: {
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 10,
+  },
+  sectionLabelSpaced: {
+    marginTop: 0,
+  },
+  logoutCard: {
+    marginTop: 12,
   },
   rowInner: {
     flexDirection: 'row',

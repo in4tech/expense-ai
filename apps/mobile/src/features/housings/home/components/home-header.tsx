@@ -55,6 +55,16 @@ export function HomeHeader({
 
         {onNotificationPress || onPredictPress ? (
           <View style={styles.actions}>
+            {onPredictPress ? (
+              <Pressable
+                onPress={onPredictPress}
+                style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
+                accessibilityRole="button"
+              >
+                <Ionicons name="sparkles-outline" size={18} color={c.primary} />
+              </Pressable>
+            ) : null}
+            
             {onNotificationPress ? (
               <View style={styles.iconButtonWrap}>
                 <Pressable
@@ -71,15 +81,6 @@ export function HomeHeader({
                   />
                 ) : null}
               </View>
-            ) : null}
-            {onPredictPress ? (
-              <Pressable
-                onPress={onPredictPress}
-                style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
-                accessibilityRole="button"
-              >
-                <Ionicons name="sparkles-outline" size={18} color={c.primary} />
-              </Pressable>
             ) : null}
           </View>
         ) : null}
