@@ -255,6 +255,20 @@ export type Dictionary = {
     quickPromptsTitle: string;
     quickPrompts: readonly string[];
   };
+  notifications: {
+    title: string;
+    backA11y: string;
+    empty: string;
+    markAllRead: string;
+    mockItems: readonly {
+      id: string;
+      kind: 'listing' | 'price_drop' | 'system' | 'reminder';
+      title: string;
+      body: string;
+      timeLabel: string;
+      read: boolean;
+    }[];
+  };
   settings: {
     title: string;
     languageTitle: string;

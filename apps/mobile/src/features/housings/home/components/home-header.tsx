@@ -8,7 +8,9 @@ type HomeHeaderProps = {
   greeting: string;
   userName: string;
   avatarUri?: string | null;
-  onProfilePress?: () => void;
+  onNotificationPress?: () => void;
+  notificationAccessibilityLabel?: string;
+  showNotificationBadge?: boolean;
   onPredictPress?: () => void;
 };
 
@@ -19,7 +21,9 @@ export function HomeHeader({
   greeting,
   userName,
   avatarUri,
-  onProfilePress,
+  onNotificationPress,
+  notificationAccessibilityLabel,
+  showNotificationBadge = false,
   onPredictPress,
 }: HomeHeaderProps) {
   const { colors: c, isDark } = useAppTheme();
@@ -27,17 +31,17 @@ export function HomeHeader({
   return (
     <View style={styles.header}>
       <View style={styles.topRow}>
-        <Pressable
-          onPress={onProfilePress}
-          style={styles.profileBlock}
-          disabled={!onProfilePress}
-          accessibilityRole="button"
-          accessibilityLabel={userName}
-        >
+        <View style={styles.profileBlock} accessibilityLabel={userName}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            <Image source={{ uri: avatarUri }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: isDark ? "#3A4A5C" : "#B8D4E8" }]}>
+            <View
+              style={[
+                styles.avatar,
+                styles.avatarPlaceholder,
+                { backgroundColor: isDark ? "#3A4A5C" : "#B8D4E8" },
+              ]}
+            >
               <Ionicons name="person" size={26} color={isDark ? "#CBD5E1" : "#FFFFFF"} />
             </View>
           )}
@@ -47,16 +51,37 @@ export function HomeHeader({
               {userName}
             </ThemedText>
           </View>
-        </Pressable>
+        </View>
 
-        {onPredictPress ? (
-          <Pressable
-            onPress={onPredictPress}
-            style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
-            accessibilityRole="button"
-          >
-            <Ionicons name="sparkles-outline" size={18} color={c.primary} />
-          </Pressable>
+        {onNotificationPress || onPredictPress ? (
+          <View style={styles.actions}>
+            {onNotificationPress ? (
+              <View style={styles.iconButtonWrap}>
+                <Pressable
+                  onPress={onNotificationPress}
+                  style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={notificationAccessibilityLabel}
+                >
+                  <Ionicons name="notifications-outline" size={18} color={c.link} />
+                </Pressable>
+                {showNotificationBadge ? (
+                  <View
+                    style={[styles.notificationBadge, { backgroundColor: c.danger, borderColor: c.card }]}
+                  />
+                ) : null}
+              </View>
+            ) : null}
+            {onPredictPress ? (
+              <Pressable
+                onPress={onPredictPress}
+                style={[styles.iconButton, { borderColor: c.border, backgroundColor: c.card }]}
+                accessibilityRole="button"
+              >
+                <Ionicons name="sparkles-outline" size={18} color={c.primary} />
+              </Pressable>
+            ) : null}
+          </View>
         ) : null}
       </View>
     </View>
@@ -66,7 +91,7 @@ export function HomeHeader({
 const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 0,
+    paddingBottom: 8,
     paddingTop: 8,
   },
   topRow: {
@@ -83,15 +108,14 @@ const styles = StyleSheet.create({
     gap: 12,
     minWidth: 0,
   },
-  avatarImage: {
+  avatar: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
   },
   avatarPlaceholder: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -108,6 +132,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.2,
+  },
+  actions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  iconButtonWrap: {
+    position: "relative",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
   },
   iconButton: {
     width: ICON_BUTTON_SIZE,

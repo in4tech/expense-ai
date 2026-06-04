@@ -17,6 +17,7 @@ import { setHomeListingsSnapshot } from "@/src/features/housings/home/navigation
 import { getHomeGreeting } from "@/src/features/housings/home/utils/get-home-greeting";
 import { pickPopularHousings } from "@/src/features/housings/home/utils/pick-popular-housings";
 import { HouseDetailCenterState } from "@/src/features/housings/house-detail";
+import { useNotificationReadState } from "@/src/features/notifications";
 import { getDefaultAvatarUri, loadProfile } from "@/src/features/profile";
 import { useLanguage } from "@/src/i18n";
 import { href } from "@/src/navigation/href";
@@ -31,6 +32,9 @@ export default function HomeScreen() {
   const [profileName, setProfileName] = useState("");
 
   const home = dictionary.home;
+  const { hasUnread: hasUnreadNotifications } = useNotificationReadState(
+    dictionary.notifications.mockItems,
+  );
   const listingFilters = useHomeListingFilters(home);
 
   const housings = data?.housings ?? [];
@@ -105,7 +109,9 @@ export default function HomeScreen() {
         greeting={greeting}
         userName={userName}
         avatarUri={displayAvatarUri}
-        onProfilePress={() => router.push(href.mainProfile)}
+        notificationAccessibilityLabel={home.notificationsA11y}
+        showNotificationBadge={hasUnreadNotifications}
+        onNotificationPress={() => router.push(href.mainNotifications)}
         onPredictPress={() => router.push(href.mainHousingPredict)}
       />
 
