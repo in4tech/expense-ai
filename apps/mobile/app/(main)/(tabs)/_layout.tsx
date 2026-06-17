@@ -3,6 +3,7 @@ import React from 'react';
 
 import { FloatingTabBar } from '@/src/components/floating-tab-bar';
 import { useLanguage } from '@/src/i18n';
+import { isAndroid } from '@/src/config/dev-mode';
 
 export default function TabLayout() {
   const { dictionary } = useLanguage();
@@ -14,7 +15,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        sceneStyle: { paddingBottom: 85 },
+        sceneStyle: { paddingBottom: isAndroid ? 120 : 85 },
       }}>
       <Tabs.Screen
         name="home"

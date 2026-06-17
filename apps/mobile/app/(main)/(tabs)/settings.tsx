@@ -1,16 +1,13 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
-  Appearance,
   Image,
   Pressable,
   PressableStateCallbackType,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  useColorScheme,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +15,6 @@ import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { BottomSheet } from '@/components/bottom-sheet';
-import { useToast } from '@/components/toast';
 import { isDevMode } from '@/src/config/dev-mode';
 import { useAuth } from '@/src/features/auth';
 import { getDefaultAvatarUri, loadProfile } from '@/src/features/profile';
@@ -29,20 +25,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const PROFILE_AVATAR_SIZE = 52;
 
 export default function SettingsScreen() {
+  const isDark = true;
   const router = useRouter();
   const { signOut, user } = useAuth();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
   const { language, dictionary, toggleLanguage } = useLanguage();
-  const { showToast } = useToast();
-  const [darkMode, setDarkMode] = useState(isDark);
   const [logoutSheetOpen, setLogoutSheetOpen] = useState(false);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [profileName, setProfileName] = useState('');
-
-  useEffect(() => {
-    setDarkMode(isDark);
-  }, [isDark]);
 
   const c = {
     screen: isDark ? '#000000' : '#F5F5F5',
@@ -55,15 +44,6 @@ export default function SettingsScreen() {
     danger: '#D9534F',
   };
 
-  const goBack = () => {
-    void Haptics.selectionAsync();
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.navigate(href.mainChat);
-    }
-  };
-
   const comingSoon = () => {
     void Haptics.selectionAsync();
     Alert.alert('', dictionary.settings.comingSoon);
@@ -74,11 +54,6 @@ export default function SettingsScreen() {
     Alert.alert(dictionary.settings.deactivateConfirmTitle, dictionary.settings.deactivateConfirmMessage, [
       { text: dictionary.settings.confirm, style: 'default' },
     ]);
-  };
-
-  const onDarkToggle = (value: boolean) => {
-    setDarkMode(value);
-    Appearance.setColorScheme(value ? 'dark' : 'light');
   };
 
   const onLanguageRowPress = useCallback(() => {
@@ -168,15 +143,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={['top']}>
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={goBack}
-          style={[styles.backButton, { backgroundColor: c.backBg }]}>
-          <Ionicons name="chevron-back" size={22} color={c.text} />
-        </Pressable>
         <Text style={[styles.headerTitle, { color: c.text }]}>{dictionary.settings.title}</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -225,27 +192,11 @@ export default function SettingsScreen() {
             dividerColor={c.divider}
             textColor={c.text}
             chevronColor={c.chevron}
+            isLast
             trailing={
               <Text style={[styles.trailingBadge, { color: c.textSecondary }]}>
                 {language === 'vn' ? dictionary.settings.vietnamese : dictionary.settings.english}
               </Text>
-            }
-          />
-          <SettingsRow
-            icon="moon-outline"
-            label={dictionary.settings.darkMode}
-            dividerColor={c.divider}
-            textColor={c.text}
-            chevronColor={c.chevron}
-            isLast
-            trailing={
-              <Switch
-                value={darkMode}
-                onValueChange={onDarkToggle}
-                trackColor={{ false: '#78788055', true: '#34C759' }}
-                thumbColor="#FFFFFF"
-                ios_backgroundColor="#78788055"
-              />
             }
           />
         </View>
@@ -374,7 +325,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

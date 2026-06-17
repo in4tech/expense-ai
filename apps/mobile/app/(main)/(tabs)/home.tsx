@@ -9,6 +9,7 @@ import {
   HomeListEmpty,
   HomeListingSearchFilter,
   HomePopularSection,
+  HomeScreenLoadingSkeleton,
   useHomeHousings,
   useHomeListingFilters,
 } from "@/src/features/housings/home";
@@ -127,7 +128,7 @@ export default function HomeScreen() {
       />
 
       {isLoading ? (
-        <HouseDetailCenterState variant="loading" message={home.loading} />
+        <HomeScreenLoadingSkeleton />
       ) : isError ? (
         <HouseDetailCenterState
           variant="error"

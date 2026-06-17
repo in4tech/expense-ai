@@ -2,8 +2,9 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import type { ComponentProps } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { isAndroid } from "../config/dev-mode";
 
 type IoniconName = ComponentProps<typeof Ionicons>["name"];
 
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: isAndroid ? 20 : 0,
     alignItems: "center",
     paddingHorizontal: 24,
   },
@@ -124,5 +125,6 @@ const styles = StyleSheet.create({
   },
   iconSlotActive: {
     backgroundColor: "#FFFFFF",
+    borderRadius: 24,
   },
 });
