@@ -10,16 +10,16 @@ from dataset import FlickDateset
 from vocab import save_vocab
 
 DEVICE = (
-    "cuda"
-    if torch.cuda.is_available()
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
     else "cpu"
 )
 
 EMBED_SIZE = 256
 HIDDEN_SIZE = 512
 
-BATCH_SIZE = 32
-EPOCHS = 20
+BATCH_SIZE = 16
+EPOCHS = 2
 LR = 1e-3
 
 dataset = FlickDateset(
@@ -35,14 +35,14 @@ def collate_fn(batch):
     images = [item[0] for item in batch]
     captions = [item[1] for item in batch]
 
-    images = torch.stack(images)
+    images = torch.stack(images) # -> (batch_size, 3, 224, 224)
     captions = nn.utils.rnn.pad_sequence(
         captions,
         batch_first=True,
         padding_value=PAD_IDX
     )
 
-    return images, captions
+    return images, captions 
 
 loader = DataLoader(
     dataset,

@@ -47,4 +47,4 @@ class FlickDateset(Dataset):
                 numericalized_caption
             )
         )
-        
+    

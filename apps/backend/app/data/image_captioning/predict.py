@@ -8,8 +8,8 @@ from model import CaptionModel
 from vocab import load_vocab
 
 DEVICE = (
-    "cuda"
-    if torch.cuda.is_available()
+    "cuda" if torch.cuda.is_available()
+    else "mps" if torch.backends.mps.is_available()
     else "cpu"
 )
 
@@ -25,7 +25,7 @@ model = CaptionModel(
 
 model.load_state_dict(
     torch.load(
-        "caption_model.pth",
+        "caption_model.pkl",
         map_location=DEVICE
     )
 )
@@ -77,7 +77,7 @@ def generate_caption(image_path, max_length=20):
                 )
             )
 
-            predicted = scores.argmx(dim=1)
+            predicted = scores.argmax(dim=1)
             idx = predicted.item()
 
             token = vocab.itos[idx]
@@ -89,4 +89,4 @@ def generate_caption(image_path, max_length=20):
 
         return " ".join(caption)
 
-print(generate_caption("test.jpg"))
+print(generate_caption("dataset/Images/1000268201_693b08cb0e.jpg"))

@@ -5,8 +5,8 @@ from pathlib import Path
 import joblib
 import pandas as pd
 
-# Artifacts are written by housing_train.py under app/data/
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+# Artifacts are written by housing_train.py under app/data/housings/
+DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "housings"
 MODEL_PATH = DATA_DIR / "housing_model.pkl"
 ARTIFACTS_PATH = DATA_DIR / "location_artifacts.pkl"
 

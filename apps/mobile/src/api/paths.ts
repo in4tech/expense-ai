@@ -5,6 +5,7 @@
  */
 const conversationsRoot = "/conversations";
 const housingsRoot = "/housings";
+const imageCaptioningRoot = "/image-captioning";
 
 export const apiPaths = {
   auth: {
@@ -37,5 +38,8 @@ export const apiPaths = {
     predict: `${housingsRoot}/predict`,
     uploadImages: (housingId: string) =>
       `${housingsRoot}/${encodeURIComponent(housingId)}/upload-multiple`,
+  },
+  imageCaptioning: {
+    predict: `${imageCaptioningRoot}/predict`,
   },
 } as const;

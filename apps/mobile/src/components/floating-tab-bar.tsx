@@ -15,6 +15,7 @@ const INACTIVE_ICON = "#FFFFFF";
 const TAB_ICONS: Record<string, { active: IoniconName; inactive: IoniconName }> = {
   home: { active: "home-outline", inactive: "home-outline" },
   chat: { active: "chatbubbles-outline", inactive: "chatbubbles-outline" },
+  caption: { active: "image-outline", inactive: "image-outline" },
   settings: { active: "settings-outline", inactive: "settings-outline" },
 };
 

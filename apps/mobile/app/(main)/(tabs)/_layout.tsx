@@ -30,6 +30,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="caption"
+        options={{
+          title: dictionary.tabs.caption,
+        }}
+      />
+      <Tabs.Screen
         name="settings"
         options={{
           title: dictionary.tabs.settings,

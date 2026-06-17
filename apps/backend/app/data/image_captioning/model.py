@@ -11,14 +11,11 @@ class EncoderCNN(nn.Module):
             weights=models.ResNet50_Weights.IMAGENET1K_V2
         )
 
-        print(resnet)
-
         for param in resnet.parameters():
             param.requires_grad = False
 
         modules = list(resnet.children())[:-1]
 
-        print(modules)
         self.resnet = nn.Sequential(*modules)
         self.fc = nn.Linear(2048, embed_size)
 

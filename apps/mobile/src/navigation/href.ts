@@ -5,6 +5,7 @@ export const href = {
   authSignIn: "/(auth)/sign-in" as Href,
   authSignUp: "/(auth)/sign-up" as Href,
   mainChat: "/(main)/(tabs)/chat" as Href,
+  mainCaption: "/(main)/(tabs)/caption" as Href,
   mainSettings: "/(main)/(tabs)/settings" as Href,
   mainDevSettings: "/(main)/dev-settings" as Href,
   mainProfile: "/(main)/profile" as Href,
