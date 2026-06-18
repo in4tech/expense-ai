@@ -16,7 +16,7 @@ VOCAB_PATH = DATA_DIR / "vocab.pkl"
 
 EMBED_SIZE = 256
 HIDDEN_SIZE = 512
-MAX_CAPTION_LENGTH = 20
+MAX_CAPTION_LENGTH = 25
 
 DEVICE = (
     "cuda"
@@ -27,7 +27,7 @@ DEVICE = (
 )
 
 try:
-    import pillow_heif
+    import pillow_heif  # pyright: ignore[reportMissingImports]
 
     pillow_heif.register_heif_opener()
 except ImportError:

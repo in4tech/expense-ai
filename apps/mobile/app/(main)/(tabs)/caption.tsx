@@ -250,7 +250,7 @@ export default function CaptionScreen() {
           />
 
           <CaptionImageActions
-            visible={Boolean(pickedImage && !isPredicting)}
+            visible={Boolean(pickedImage && !isPredicting && !hasCaption)}
             changeLabel={copy.changeImage}
             clearLabel={copy.clearImage}
             changeA11y={copy.changeImageA11y}

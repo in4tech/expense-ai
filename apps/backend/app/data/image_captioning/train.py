@@ -19,7 +19,7 @@ EMBED_SIZE = 256
 HIDDEN_SIZE = 512
 
 BATCH_SIZE = 16
-EPOCHS = 2
+EPOCHS = 20
 LR = 1e-3
 
 dataset = FlickDateset(

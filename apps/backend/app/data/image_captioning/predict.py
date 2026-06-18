@@ -83,6 +83,7 @@ def generate_caption(image_path, max_length=20):
             token = vocab.itos[idx]
             if token == "<EOS>":
                 break
+            
 
             caption.append(token)
             word = predicted.unsqueeze(0)

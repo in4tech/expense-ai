@@ -21,8 +21,8 @@ class EncoderCNN(nn.Module):
 
     
     def forward(self, images):
-        features = self.resnet(images)
-        features = features.reshape(features.size(0), -1)
+        features = self.resnet(images) # -> Tensor.size([batch_size, 2048, 7, 7])
+        features = features.reshape(features.size(0), -1) # -> Tensor.size([batch_size, 2048 * 7 * 7])
 
         features = self.fc(features)
 
