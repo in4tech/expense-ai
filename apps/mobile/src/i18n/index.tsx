@@ -279,11 +279,16 @@ export type Dictionary = {
     modeGallery: string;
     pickImage: string;
     pickImageHint: string;
+    idleGalleryHint: string;
     cameraReadyTitle: string;
     cameraReadySubtitle: string;
     cameraReadyHint: string;
     changeImage: string;
+    clearImage: string;
+    changeImageA11y: string;
+    clearImageA11y: string;
     predictButton: string;
+    headerGenerateHint: string;
     scanning: string;
     resultLabel: string;
     captionReady: string;

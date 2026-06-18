@@ -13,8 +13,8 @@ import { router } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
-  CaptionCameraIdle,
-  CaptionGalleryIdle,
+  CaptionIdleStage,
+  CaptionImageActions,
   CaptionNextActions,
   CaptionResultCard,
   CaptionScanFrame,
@@ -150,11 +150,15 @@ export default function CaptionScreen() {
       return;
     }
     if (!pickedImage) {
-      void takePhoto();
+      if (captureMode === "gallery") {
+        void pickFromGallery();
+      } else {
+        void takePhoto();
+      }
       return;
     }
     void predictCaption();
-  }, [isPredicting, pickedImage, predictCaption, takePhoto]);
+  }, [captureMode, isPredicting, pickedImage, pickFromGallery, predictCaption, takePhoto]);
 
   const onAskAiPress = useCallback(() => {
     if (!caption) {
@@ -170,11 +174,18 @@ export default function CaptionScreen() {
     void takePhoto();
   }, [clearPickedImage, takePhoto]);
 
+  const onChangeImagePress = useCallback(() => {
+    if (captureMode === "gallery") {
+      void pickFromGallery();
+      return;
+    }
+    void takePhoto();
+  }, [captureMode, pickFromGallery, takePhoto]);
+
   const hasCaption = Boolean(caption && !isPredicting);
   const isCameraIdle = !pickedImage && captureMode === "camera";
   const isGalleryIdle = !pickedImage && captureMode === "gallery";
   const showHero = !hasCaption && !isPredicting;
-  const headerTitle = pickedImage ? copy.predictButton : copy.heroPrompt;
 
   const bottomInset = TAB_BAR_CLEARANCE + Math.max(insets.bottom, 8);
 
@@ -192,7 +203,8 @@ export default function CaptionScreen() {
         {showHero ? (
           <CaptionScreenHeader
             eyebrow={copy.modeCaption}
-            title={headerTitle}
+            title={pickedImage ? copy.predictButton : undefined}
+            subtitle={pickedImage ? copy.headerGenerateHint : undefined}
             mode={captureMode}
             modeLabel={captureMode === "camera" ? copy.modeCamera : copy.modeGallery}
           />
@@ -206,18 +218,14 @@ export default function CaptionScreen() {
                 <CaptionScanOverlay active={isPredicting} label={copy.scanning} />
               ) : null}
 
-              {!pickedImage && isCameraIdle ? (
-                <CaptionCameraIdle
-                  accessibilityLabel={copy.takePhotoA11y}
-                  onPress={() => void takePhoto()}
-                />
-              ) : null}
-
-              {!pickedImage && isGalleryIdle ? (
-                <CaptionGalleryIdle
-                  hint={copy.pickImageHint}
-                  accessibilityLabel={copy.galleryA11y}
-                  onPress={() => void pickFromGallery()}
+              {!pickedImage && (isCameraIdle || isGalleryIdle) ? (
+                <CaptionIdleStage
+                  mode={captureMode}
+                  title={isCameraIdle ? copy.cameraReadyTitle : copy.pickImage}
+                  subtitle={isCameraIdle ? copy.cameraReadySubtitle : copy.subtitle}
+                  hint={isCameraIdle ? copy.cameraReadyHint : copy.idleGalleryHint}
+                  accessibilityLabel={isCameraIdle ? copy.takePhotoA11y : copy.galleryA11y}
+                  onPress={() => (isCameraIdle ? void takePhoto() : void pickFromGallery())}
                 />
               ) : null}
             </View>
@@ -239,6 +247,16 @@ export default function CaptionScreen() {
             newPhotoA11y={copy.newPhotoA11y}
             onAskAi={onAskAiPress}
             onNewPhoto={onNewPhotoPress}
+          />
+
+          <CaptionImageActions
+            visible={Boolean(pickedImage && !isPredicting)}
+            changeLabel={copy.changeImage}
+            clearLabel={copy.clearImage}
+            changeA11y={copy.changeImageA11y}
+            clearA11y={copy.clearImageA11y}
+            onChange={onChangeImagePress}
+            onClear={clearPickedImage}
           />
 
           <View style={styles.controls}>
