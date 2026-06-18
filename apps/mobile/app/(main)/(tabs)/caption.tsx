@@ -9,17 +9,25 @@ import {
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ThemedText } from "@/components/themed-text";
 import {
+  CaptionCameraIdle,
+  CaptionGalleryIdle,
+  CaptionNextActions,
   CaptionResultCard,
   CaptionScanFrame,
   CaptionScanOverlay,
+  CaptionScreenHeader,
+  captionImagePickerOptions,
   predictImageCaption,
+  toCaptionPickedAsset,
 } from "@/src/features/image-caption";
 import { isAndroid } from "@/src/config/dev-mode";
 import { useLanguage } from "@/src/i18n";
+import { setCaptionChatDraft } from "@/src/navigation/caption-chat-bridge";
+import { href } from "@/src/navigation/href";
 import { useAuth } from "@/src/providers/auth-context";
 
 type PickedImage = {
@@ -32,7 +40,7 @@ type CaptureMode = "camera" | "gallery";
 
 const TAB_BAR_CLEARANCE = isAndroid ? 120 : 0;
 const MIN_SCAN_MS = 5000;
-const BOTTOM_DOCK_RESERVE = 180;
+const BOTTOM_DOCK_RESERVE = 210;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -50,11 +58,7 @@ export default function CaptionScreen() {
   const client = useMemo(() => getApiClient(), [getApiClient]);
 
   const applyPickedAsset = useCallback((asset: ImagePicker.ImagePickerAsset) => {
-    setPickedImage({
-      uri: asset.uri,
-      name: asset.fileName ?? `photo-${Date.now()}.jpg`,
-      mimeType: asset.mimeType ?? "image/jpeg",
-    });
+    setPickedImage(toCaptionPickedAsset(asset));
     setCaption(null);
   }, []);
 
@@ -65,10 +69,7 @@ export default function CaptionScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
+    const result = await ImagePicker.launchCameraAsync(captionImagePickerOptions);
 
     if (result.canceled || result.assets.length === 0) {
       return;
@@ -88,10 +89,7 @@ export default function CaptionScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync(captionImagePickerOptions);
 
     if (result.canceled || result.assets.length === 0) {
       return;
@@ -118,7 +116,6 @@ export default function CaptionScreen() {
       clearPickedImage();
     }
     setCaptureMode("gallery");
-    void pickFromGallery();
   }, [captureMode, clearPickedImage, pickFromGallery]);
 
   const predictCaption = useCallback(async () => {
@@ -159,6 +156,26 @@ export default function CaptionScreen() {
     void predictCaption();
   }, [isPredicting, pickedImage, predictCaption, takePhoto]);
 
+  const onAskAiPress = useCallback(() => {
+    if (!caption) {
+      return;
+    }
+    const draft = copy.askAiDraft.replace("{{caption}}", caption);
+    setCaptionChatDraft(draft);
+    router.push(href.mainChat);
+  }, [caption, copy.askAiDraft]);
+
+  const onNewPhotoPress = useCallback(() => {
+    clearPickedImage();
+    void takePhoto();
+  }, [clearPickedImage, takePhoto]);
+
+  const hasCaption = Boolean(caption && !isPredicting);
+  const isCameraIdle = !pickedImage && captureMode === "camera";
+  const isGalleryIdle = !pickedImage && captureMode === "gallery";
+  const showHero = !hasCaption && !isPredicting;
+  const headerTitle = pickedImage ? copy.predictButton : copy.heroPrompt;
+
   const bottomInset = TAB_BAR_CLEARANCE + Math.max(insets.bottom, 8);
 
   return (
@@ -172,34 +189,56 @@ export default function CaptionScreen() {
       <View style={styles.scrim} />
 
       <SafeAreaView style={styles.safe} edges={["top"]}>
-        <ThemedText style={styles.heroPrompt}>{copy.heroPrompt}</ThemedText>
+        {showHero ? (
+          <CaptionScreenHeader
+            eyebrow={copy.modeCaption}
+            title={headerTitle}
+            mode={captureMode}
+            modeLabel={captureMode === "camera" ? copy.modeCamera : copy.modeGallery}
+          />
+        ) : null}
 
-        <View style={styles.scanStage}>
-          <View style={styles.scanFrame}>
-            {pickedImage && !isPredicting ? <CaptionScanFrame /> : null}
-            {pickedImage && isPredicting ? (
-              <CaptionScanOverlay active={isPredicting} label={copy.scanning} />
-            ) : null}
+        {!hasCaption ? (
+          <View style={styles.scanStage}>
+            <View style={styles.scanFrame}>
+              {pickedImage && !isPredicting ? <CaptionScanFrame /> : null}
+              {pickedImage && isPredicting ? (
+                <CaptionScanOverlay active={isPredicting} label={copy.scanning} />
+              ) : null}
 
-            {!pickedImage ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={copy.takePhotoA11y}
-                onPress={() => void takePhoto()}
-                style={styles.emptyFrame}
-              >
-                <Ionicons name="camera-outline" size={42} color="rgba(255,255,255,0.9)" />
-                <ThemedText style={styles.emptyFrameText}>{copy.pickImageHint}</ThemedText>
-              </Pressable>
-            ) : null}
+              {!pickedImage && isCameraIdle ? (
+                <CaptionCameraIdle
+                  accessibilityLabel={copy.takePhotoA11y}
+                  onPress={() => void takePhoto()}
+                />
+              ) : null}
+
+              {!pickedImage && isGalleryIdle ? (
+                <CaptionGalleryIdle
+                  hint={copy.pickImageHint}
+                  accessibilityLabel={copy.galleryA11y}
+                  onPress={() => void pickFromGallery()}
+                />
+              ) : null}
+            </View>
           </View>
-        </View>
+        ) : null}
 
         <View style={[styles.bottomDock, { paddingBottom: bottomInset }]}>
           <CaptionResultCard
-            visible={Boolean(caption && !isPredicting)}
+            visible={hasCaption}
             label={copy.captionReady}
             caption={caption ?? ""}
+          />
+
+          <CaptionNextActions
+            visible={hasCaption}
+            askAiLabel={copy.askAi}
+            newPhotoLabel={copy.newPhoto}
+            askAiA11y={copy.askAiA11y}
+            newPhotoA11y={copy.newPhotoA11y}
+            onAskAi={onAskAiPress}
+            onNewPhoto={onNewPhotoPress}
           />
 
           <View style={styles.controls}>
@@ -219,13 +258,27 @@ export default function CaptionScreen() {
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={pickedImage ? copy.shutterA11y : copy.takePhotoA11y}
+              accessibilityLabel={
+                hasCaption
+                  ? copy.regenerateA11y
+                  : pickedImage
+                    ? copy.shutterA11y
+                    : copy.takePhotoA11y
+              }
               disabled={isPredicting}
               onPress={onShutterPress}
               style={styles.shutterOuter}
             >
               {isPredicting ? (
-                <ActivityIndicator color="#111111" />
+                <ActivityIndicator color="#FFFFFF" />
+              ) : hasCaption ? (
+                <View style={styles.shutterInner}>
+                  <Ionicons name="refresh" size={28} color="#111111" />
+                </View>
+              ) : pickedImage ? (
+                <View style={styles.shutterInner}>
+                  <Ionicons name="arrow-up" size={28} color="#111111" />
+                </View>
               ) : (
                 <View style={styles.shutterInner} />
               )}
@@ -272,15 +325,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
   },
-  heroPrompt: {
-    marginTop: 8,
-    paddingHorizontal: 28,
-    color: "#FFFFFF",
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: "700",
-    textAlign: "center",
-  },
   scanStage: {
     flex: 1,
     alignItems: "center",
@@ -294,25 +338,8 @@ const styles = StyleSheet.create({
     maxWidth: 340,
     aspectRatio: 0.92,
     borderRadius: 24,
-    overflow: "visible",
+    overflow: "hidden",
     position: "relative",
-  },
-  emptyFrame: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    paddingHorizontal: 24,
-  },
-  emptyFrameText: {
-    color: "rgba(255,255,255,0.82)",
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: "center",
   },
   bottomDock: {
     position: "absolute",
@@ -322,7 +349,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   controls: {
-    gap: 18,
+    gap: 14,
+  },
+  captureHint: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "500",
+    textAlign: "center",
   },
   shutterRow: {
     flexDirection: "row",
@@ -359,5 +393,7 @@ const styles = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

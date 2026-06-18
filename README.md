@@ -20,7 +20,7 @@ flowchart LR
 ## Project Structure
 
 - `apps/mobile`: React Native app (Expo Router)
-- `apps/backend`: FastAPI service, OCR/parser logic, DB models, Alembic config
+- `apps/backend`: FastAPI service, OCR/parser logic, DB models
 - `packages/shared-types`: shared workspace package
 - `patches/`: `patch-package` fixes applied at `postinstall`
 - `docker-compose.yml`: backend + postgres + pgAdmin local stack
@@ -104,18 +104,6 @@ Endpoints:
 - Backend API: `http://127.0.0.1:8000`
 - PostgreSQL: `127.0.0.1:5432`
 - pgAdmin: `http://127.0.0.1:5050`
-
-## Database Migrations (Alembic)
-
-Alembic config is in `apps/backend/alembic.ini`.
-
-From `apps/backend`:
-
-```bash
-alembic revision -m "describe change"
-alembic upgrade head
-alembic downgrade -1
-```
 
 ## Common Commands
 

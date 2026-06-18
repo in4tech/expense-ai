@@ -36,11 +36,13 @@ def collate_fn(batch):
     captions = [item[1] for item in batch]
 
     images = torch.stack(images) # -> (batch_size, 3, 224, 224)
+    
     captions = nn.utils.rnn.pad_sequence(
         captions,
         batch_first=True,
         padding_value=PAD_IDX
-    )
+    ) # -> Tensor.size([1, 6, 7, 2])
+    
 
     return images, captions 
 
@@ -49,7 +51,7 @@ loader = DataLoader(
     batch_size=BATCH_SIZE,
     shuffle=True,
     collate_fn=collate_fn
-)
+) # -> (images, captions)
 
 model = CaptionModel(
     EMBED_SIZE,
@@ -57,10 +59,15 @@ model = CaptionModel(
     len(dataset.vocab)
 ).to(DEVICE)
 
+# CrossEntropyLoss là hàm mất mát cho bài toán phân loại nhiều lớp
+# ignore_index là giá trị mà ta muốn bỏ qua khi tính toán loss
+# -> Model dự đoán sai bao nhiêu?
 criterion = nn.CrossEntropyLoss(
     ignore_index=PAD_IDX
 )
 
+# Adam là một bộ tối ưu hóa (optimizer)
+# -> Sau khi biết model sai, phải cập nhật weights để model tốt hơn
 optimizer = torch.optim.Adam(
     model.parameters(),
     lr=LR
@@ -86,7 +93,7 @@ for epoch in range(EPOCHS):
                 outputs.shape[2]
             ),
             captions.reshape(-1)
-        )
+        ) # -> Tensor.size([batch_size * seq_len, vocab_size])
 
         optimizer.zero_grad()
         loss.backward()

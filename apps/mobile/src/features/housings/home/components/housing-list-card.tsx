@@ -9,6 +9,7 @@ import {
   HousingFastImage,
   preloadHousingImages,
 } from "@/src/features/housings/house-detail/upload-images/components/housing-fast-image";
+import { getDefaultHousingCoverUri } from "@/src/features/housings/default-housing-cover";
 import { formatListingPrice } from "@/src/features/housings/house-detail/utils";
 import type { Housing } from "@/src/features/housings/types";
 import type { Dictionary } from "@/src/i18n";
@@ -98,7 +99,7 @@ export function HousingListCard({
     [c.primary, hasListedPrice],
   );
 
-  const coverUri = housing.image_urls[0];
+  const coverUri = housing.image_urls[0] ?? getDefaultHousingCoverUri(housing.id);
   const showNewBadge = isHousingUpdatedToday(housing.updated_at);
 
   const displayName = housing.house_name ?? copy.untitledHousing;
@@ -110,8 +111,12 @@ export function HousingListCard({
   const wifiLabel = housing.has_wifi ? copy.wifiAvailable : copy.wifiUnknown;
 
   useEffect(() => {
-    preloadHousingImages(housing.image_urls);
-  }, [housing.image_urls]);
+    preloadHousingImages(
+      housing.image_urls.length > 0
+        ? housing.image_urls
+        : [getDefaultHousingCoverUri(housing.id)],
+    );
+  }, [housing.id, housing.image_urls]);
 
   const onViewDetails = useCallback(() => {
     router.push(href.mainHouseDetail(housing.id));
@@ -133,13 +138,12 @@ export function HousingListCard({
       accessibilityLabel={displayName}
     >
       <View style={[styles.media, isCarousel && styles.mediaCarousel]}>
-        {coverUri ? (
-          <HousingFastImage uri={coverUri} style={styles.coverImage} priority="normal" />
-        ) : (
-          <View style={[styles.coverImage, styles.coverPlaceholder, { backgroundColor: c.cardMuted }]}>
-            <Ionicons name="home-outline" size={44} color={c.hint} />
-          </View>
-        )}
+        <HousingFastImage
+          uri={coverUri}
+          style={styles.coverImage}
+          contentFit="cover"
+          priority="normal"
+        />
 
         {showNewBadge ? (
           <View style={styles.newBadge}>
@@ -246,10 +250,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-  },
-  coverPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   newBadge: {
     position: "absolute",

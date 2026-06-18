@@ -26,6 +26,13 @@ DEVICE = (
     else "cpu"
 )
 
+try:
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
 _transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -64,10 +71,25 @@ def _get_model_and_vocab():
     return model, vocab
 
 
+def _load_rgb_image(image_bytes: bytes) -> Image.Image:
+    if not image_bytes:
+        raise ValueError("Uploaded file is empty.")
+
+    buffer = io.BytesIO(image_bytes)
+    try:
+        with Image.open(buffer) as image:
+            image.load()
+            return image.convert("RGB")
+    except Exception as exc:
+        raise ValueError(
+            "Could not read image. Please use JPEG or PNG, or retake the photo."
+        ) from exc
+
+
 def generate_caption(image_bytes: bytes, max_length: int = MAX_CAPTION_LENGTH) -> str:
     model, vocab = _get_model_and_vocab()
 
-    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image = _load_rgb_image(image_bytes)
     image_tensor = _transform(image).unsqueeze(0).to(DEVICE)
 
     with torch.no_grad():

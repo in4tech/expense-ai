@@ -63,8 +63,8 @@ class CaptionModel(nn.Module):
         self.decoder = DecoderCNN(embed_size, hidden_size, vocab_size)
 
     def forward(self, images, captions):
-        features = self.encoder(images)
+        features = self.encoder(images) # -> Tensor.size([batch_size, embed_size])
 
-        outputs = self.decoder(features, captions)
+        outputs = self.decoder(features, captions) # -> Tensor.size([batch_size, seq_len, vocab_size])
 
-        return outputs
+        return outputs 

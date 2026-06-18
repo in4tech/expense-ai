@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "expo start",
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "prepare-ios": "node ../../scripts/apply-patches.cjs",
     "pod-install": "bash scripts/pod-install.sh",
@@ -16,10 +15,8 @@
     "prebuild:clean": "expo prebuild --clean"
   },
   "dependencies": {
-    "@expense-ai/shared-types": "*",
     "@expo/vector-icons": "^15.0.3",
     "@react-navigation/bottom-tabs": "^7.4.0",
-    "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
     "@tanstack/react-query": "^5.100.10",
     "country-codes-list": "^2.0.0",
@@ -35,9 +32,7 @@
     "expo-secure-store": "~15.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
-    "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
-    "expo-web-browser": "~15.0.10",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",

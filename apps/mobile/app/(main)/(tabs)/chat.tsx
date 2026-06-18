@@ -10,6 +10,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import {
   buildChatListWithDaySeparators,
   type ChatListItem,
@@ -42,6 +43,7 @@ import {
 
 import { useToast } from "@/components/toast";
 import { useLanguage } from "@/src/i18n";
+import { consumeCaptionChatDraft } from "@/src/navigation/caption-chat-bridge";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppTheme } from "@/src/theme";
 
@@ -78,6 +80,15 @@ export default function ChatScreen() {
     isLoadingOlderMessages,
     loadOlderMessages,
   } = useChat();
+
+  useFocusEffect(
+    useCallback(() => {
+      const draft = consumeCaptionChatDraft();
+      if (draft) {
+        setInput(draft);
+      }
+    }, [setInput]),
+  );
 
   const {
     pickedAttachment,

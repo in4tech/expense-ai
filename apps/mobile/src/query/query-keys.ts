@@ -1,10 +1,5 @@
 /** Central query keys so cache invalidation stays consistent. */
 export const queryKeys = {
-  auth: {
-    all: ["auth"] as const,
-    me: (apiBaseUrl: string) =>
-      [...queryKeys.auth.all, "me", apiBaseUrl] as const,
-  },
   conversations: {
     all: ["conversations"] as const,
     list: (apiBaseUrl: string) =>

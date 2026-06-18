@@ -49,18 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [apiBaseUrl, setApiBaseUrl] = useState(DEFAULT_API_BASE_URL);
   const accessTokenRef = useRef<string | null>(null);
   const refreshTokenRef = useRef<string | null>(null);
+  const unauthorizedHandlingRef = useRef<Promise<boolean> | null>(null);
 
   const getAccessToken = useCallback(
     () => accessTokenRef.current ?? undefined,
     [],
   );
-
-  const getApiClient = useCallback(() => {
-    return createApiClient({
-      baseUrl: apiBaseUrl,
-      getAccessToken: () => accessTokenRef.current ?? undefined,
-    });
-  }, [apiBaseUrl]);
 
   const applySession = useCallback(
     async (accessToken: string, refreshToken: string) => {
@@ -106,6 +100,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   }, [apiBaseUrl]);
+
+  const handleUnauthorized = useCallback(async (): Promise<boolean> => {
+    if (unauthorizedHandlingRef.current) {
+      return unauthorizedHandlingRef.current;
+    }
+
+    const handling = (async () => {
+      const refreshed = await tryRefreshSession();
+      if (!refreshed) {
+        await clearSession();
+      }
+      return refreshed;
+    })();
+
+    unauthorizedHandlingRef.current = handling;
+    try {
+      return await handling;
+    } finally {
+      unauthorizedHandlingRef.current = null;
+    }
+  }, [clearSession, tryRefreshSession]);
+
+  const getApiClient = useCallback(() => {
+    return createApiClient({
+      baseUrl: apiBaseUrl,
+      getAccessToken: () => accessTokenRef.current ?? undefined,
+      onUnauthorized: () => handleUnauthorized(),
+    });
+  }, [apiBaseUrl, handleUnauthorized]);
 
   useEffect(() => {
     let cancelled = false;

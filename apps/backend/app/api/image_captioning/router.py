@@ -21,6 +21,8 @@ async def predict_caption(file: UploadFile = File(...)):
         caption = await asyncio.to_thread(generate_caption, content)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

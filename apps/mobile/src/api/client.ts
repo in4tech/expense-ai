@@ -7,6 +7,13 @@ import {
 
 export const normalizeBaseUrl = (apiBaseUrl: string) => apiBaseUrl.replace(/\/$/, '');
 
+const AUTH_PATHS_WITHOUT_SESSION = new Set(['/auth/login', '/auth/register']);
+
+const shouldHandleUnauthorized = (path: string) => {
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  return !AUTH_PATHS_WITHOUT_SESSION.has(normalized);
+};
+
 type ApiErrorPayload = { detail?: string };
 
 export const readApiErrorDetail = (payload: unknown, fallback: string): string => {
@@ -28,6 +35,8 @@ export type CreateApiClientConfig = {
   defaultHeaders?: Record<string, string>;
   getAccessToken?: () => string | undefined;
   enableRequestLogging?: boolean;
+  /** Return true when the session was refreshed and the request may be retried. */
+  onUnauthorized?: (path: string) => boolean | Promise<boolean>;
 };
 
 export function createApiClient(config: CreateApiClientConfig) {
@@ -59,7 +68,11 @@ export function createApiClient(config: CreateApiClientConfig) {
     return headers;
   };
 
-  const request = async (path: string, init: RequestInit = {}): Promise<Response> => {
+  const request = async (
+    path: string,
+    init: RequestInit = {},
+    isRetry = false,
+  ): Promise<Response> => {
     const url = buildUrl(path);
     const headers = mergeHeaders(init.headers);
     const method = (init.method ?? 'GET').toUpperCase();
@@ -79,6 +92,18 @@ export function createApiClient(config: CreateApiClientConfig) {
         console.log(`[API] ✖ ${method} ${url} network error`, error);
       }
       throw error;
+    }
+
+    if (
+      response.status === 401 &&
+      !isRetry &&
+      config.onUnauthorized &&
+      shouldHandleUnauthorized(path)
+    ) {
+      const recovered = await config.onUnauthorized(path);
+      if (recovered) {
+        return request(path, init, true);
+      }
     }
 
     if (logRequests) {
