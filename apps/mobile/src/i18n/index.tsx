@@ -9,6 +9,7 @@ export type Dictionary = {
   tabs: {
     home: string;
     chat: string;
+    caption: string;
     settings: string;
   };
   home: {
@@ -268,6 +269,45 @@ export type Dictionary = {
       timeLabel: string;
       read: boolean;
     }[];
+  };
+  imageCaption: {
+    title: string;
+    heroPrompt: string;
+    subtitle: string;
+    modeCaption: string;
+    modeCamera: string;
+    modeGallery: string;
+    pickImage: string;
+    pickImageHint: string;
+    idleGalleryHint: string;
+    cameraReadyTitle: string;
+    cameraReadySubtitle: string;
+    cameraReadyHint: string;
+    changeImage: string;
+    clearImage: string;
+    changeImageA11y: string;
+    clearImageA11y: string;
+    predictButton: string;
+    headerGenerateHint: string;
+    scanning: string;
+    resultLabel: string;
+    captionReady: string;
+    nextStepTitle: string;
+    askAi: string;
+    newPhoto: string;
+    askAiDraft: string;
+    askAiA11y: string;
+    newPhotoA11y: string;
+    regenerateA11y: string;
+    shutterA11y: string;
+    takePhotoA11y: string;
+    galleryA11y: string;
+    predictFailedTitle: string;
+    predictFailed: string;
+    permissionDeniedTitle: string;
+    permissionDeniedMessage: string;
+    cameraPermissionDeniedTitle: string;
+    cameraPermissionDeniedMessage: string;
   };
   settings: {
     title: string;

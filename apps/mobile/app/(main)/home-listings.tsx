@@ -9,6 +9,7 @@ import { StackIconButton } from "@/src/components/stack-icon-button";
 import {
   HomeListEmpty,
   HomeListingSearchFilter,
+  HomeListingsLoadingSkeleton,
   HomeListingsTabs,
   HousingListCard,
   HousingPopularCard,
@@ -109,6 +110,7 @@ export default function HomeListingsScreen() {
   const needsApiData = activeTab !== "recommendation";
   const showLoading = needsApiData && isLoading && !snapshot;
   const showError = needsApiData && isError && !snapshot;
+  const skeletonVariant = activeTab === "recommendation" ? "popular" : "list";
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.screen }]} edges={["top"]}>
@@ -143,7 +145,7 @@ export default function HomeListingsScreen() {
       />
 
       {showLoading ? (
-        <HouseDetailCenterState variant="loading" message={home.loading} />
+        <HomeListingsLoadingSkeleton variant={skeletonVariant} />
       ) : showError ? (
         <HouseDetailCenterState
           variant="error"

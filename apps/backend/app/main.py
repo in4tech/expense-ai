@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.conversations.router import router as conversations_router
 from app.api.authentication.router import router as authentication_router
 from app.api.housings.router import router as housings_router
+from app.api.image_captioning.router import router as image_captioning_router
 
 from app.db.base import Base
 from app.db.models import (  # noqa: F401 - register SQLAlchemy tables
@@ -39,3 +40,4 @@ async def startup():
 app.include_router(conversations_router, prefix="/conversations", tags=["Conversations"])
 app.include_router(authentication_router, prefix="/auth", tags=["Authentication"])
 app.include_router(housings_router, prefix="/housings", tags=["Housings"])
+app.include_router(image_captioning_router, prefix="/image-captioning",tags=["Image Captioning"])

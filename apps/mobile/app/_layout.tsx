@@ -1,11 +1,10 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ToastProvider } from '@/components/toast';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider } from '@/src/providers';
 import { LanguageProvider } from '@/src/i18n';
 import { QueryProvider } from '@/src/query/query-provider';
@@ -16,8 +15,6 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <LanguageProvider>
       <QueryProvider>
@@ -25,12 +22,12 @@ export default function RootLayout() {
           <AppThemeProvider>
             <SafeAreaProvider>
               <ToastProvider>
-                <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <ThemeProvider value={DarkTheme}>
                 <Stack screenOptions={{ headerShown: false }}>
                   <Stack.Screen name="(main)" />
                   <Stack.Screen name="(auth)" />
                 </Stack>
-                <StatusBar style="auto" />
+                <StatusBar style="light" />
                 </ThemeProvider>
               </ToastProvider>
             </SafeAreaProvider>

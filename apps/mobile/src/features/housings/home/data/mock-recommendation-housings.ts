@@ -1,4 +1,5 @@
 import type { Housing } from "@/src/features/housings/types";
+import { getDefaultHousingCoverUri } from "@/src/features/housings/default-housing-cover";
 
 /** Display-only listings for the home recommendation carousel (not from API). */
 export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
@@ -19,7 +20,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     parking_unit: "tháng",
     garbage_unit: "tháng",
     amenities: null,
-    image_urls: ["https://picsum.photos/id/1018/800/600"],
+    image_urls: [getDefaultHousingCoverUri("mock-rec-1")],
     updated_at: null,
   },
   {
@@ -39,7 +40,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     parking_unit: null,
     garbage_unit: "tháng",
     amenities: null,
-    image_urls: ["https://picsum.photos/id/1066/800/600"],
+    image_urls: [getDefaultHousingCoverUri("mock-rec-2")],
     updated_at: null,
   },
   {
@@ -59,7 +60,7 @@ export const MOCK_RECOMMENDATION_HOUSINGS: Housing[] = [
     parking_unit: "tháng",
     garbage_unit: "tháng",
     amenities: null,
-    image_urls: ["https://picsum.photos/id/1033/800/600"],
+    image_urls: [getDefaultHousingCoverUri("mock-rec-3")],
     updated_at: null,
   },
 ];

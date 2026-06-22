@@ -8,6 +8,7 @@ import {
   HousingFastImage,
   preloadHousingImages,
 } from "@/src/features/housings/house-detail/upload-images/components/housing-fast-image";
+import { getDefaultHousingCoverUri } from "@/src/features/housings/default-housing-cover";
 import { formatListingPrice } from "@/src/features/housings/house-detail/utils";
 import type { Housing } from "@/src/features/housings/types";
 import type { Dictionary } from "@/src/i18n";
@@ -41,7 +42,7 @@ export function HousingPopularCard({
   const isFullWidth = layout === "full";
   const { colors: c, isDark } = useAppTheme();
   const [saved, setSaved] = useState(false);
-  const coverUri = housing.image_urls[0];
+  const coverUri = housing.image_urls[0] ?? getDefaultHousingCoverUri(housing.id);
 
   const hasListedPrice = housing.price != null && housing.price > 0;
 
@@ -61,8 +62,12 @@ export function HousingPopularCard({
     : copy.roomCodeLabel;
 
   useEffect(() => {
-    preloadHousingImages(housing.image_urls);
-  }, [housing.image_urls]);
+    preloadHousingImages(
+      housing.image_urls.length > 0
+        ? housing.image_urls
+        : [getDefaultHousingCoverUri(housing.id)],
+    );
+  }, [housing.id, housing.image_urls]);
 
   const isMock = isMockRecommendationHousing(housing.id);
 
@@ -96,19 +101,12 @@ export function HousingPopularCard({
         accessibilityLabel={displayName}
       >
         <View style={[styles.media, isFullWidth && styles.mediaFull]}>
-          {coverUri ? (
-            <HousingFastImage uri={coverUri} style={styles.coverImage} priority="normal" />
-          ) : (
-            <View
-              style={[
-                styles.coverImage,
-                styles.coverPlaceholder,
-                { backgroundColor: c.cardMuted },
-              ]}
-            >
-              <Ionicons name="home-outline" size={32} color={c.hint} />
-            </View>
-          )}
+          <HousingFastImage
+            uri={coverUri}
+            style={styles.coverImage}
+            contentFit="cover"
+            priority="normal"
+          />
 
           {showSaveButton ? (
             <Pressable
@@ -191,10 +189,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-  },
-  coverPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
   },
   saveButton: {
     position: "absolute",

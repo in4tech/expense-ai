@@ -1,0 +1,5 @@
+# Optional: training / data-prep scripts under app/data/
+-r requirements.txt
+geopy
+matplotlib
+shap
